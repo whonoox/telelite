@@ -5,11 +5,37 @@ Run the server first (`python run.py`), then run this script against your
 own Telegram account/phone to walk through the full login -> chats ->
 messages -> send -> logout flow.
 """
+import os
 import sys
 
 import requests
 
 BASE_URL = "http://127.0.0.1:5000"
+TOKEN_FILE = os.path.join(os.path.dirname(__file__), "..", ".cli_test_token")
+
+
+def load_cached_token():
+    if not os.path.exists(TOKEN_FILE):
+        return None
+    with open(TOKEN_FILE) as f:
+        token = f.read().strip()
+    if not token:
+        return None
+    resp = requests.get(f"{BASE_URL}/chats", headers={"Authorization": f"Bearer {token}"})
+    if resp.status_code == 200:
+        return token
+    os.remove(TOKEN_FILE)
+    return None
+
+
+def save_token(token):
+    with open(TOKEN_FILE, "w") as f:
+        f.write(token)
+
+
+def clear_cached_token():
+    if os.path.exists(TOKEN_FILE):
+        os.remove(TOKEN_FILE)
 
 
 def request_login():
@@ -85,17 +111,29 @@ def logout(headers):
 
 def main():
     print("=== TeleLite Phase 1 CLI test ===")
-    _, pending_id = request_login()
-    token = verify_login(pending_id)
-    print("Logged in.")
+    token = load_cached_token()
+    if token:
+        print("Reusing cached login.")
+    else:
+        _, pending_id = request_login()
+        token = verify_login(pending_id)
+        save_token(token)
+        print("Logged in.")
     headers = {"Authorization": f"Bearer {token}"}
 
+    did_logout = False
     while True:
         chats = list_chats(headers)
         choice = input(
-            "\nEnter chat index to open, or 'q' to logout and quit: "
+            "\nEnter chat index to open, 'q' to quit (stay logged in), "
+            "or 'x' to logout and quit: "
         ).strip()
         if choice.lower() == "q":
+            break
+        if choice.lower() == "x":
+            logout(headers)
+            clear_cached_token()
+            did_logout = True
             break
         try:
             chat = chats[int(choice)]
@@ -110,7 +148,7 @@ def main():
             view_messages(headers, chat["chat_id"])
             input("Press enter to return to chat list...")
 
-    logout(headers)
+    print("Logged out." if did_logout else "Session kept alive for next run.")
     print("Done.")
 
 

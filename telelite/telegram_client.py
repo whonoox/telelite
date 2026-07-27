@@ -29,7 +29,14 @@ def _run(coro):
 
 def _new_client(session_string=""):
     return TelegramClient(
-        StringSession(session_string), config.TELEGRAM_API_ID, config.TELEGRAM_API_HASH
+        StringSession(session_string),
+        config.TELEGRAM_API_ID,
+        config.TELEGRAM_API_HASH,
+        # Each API call is one synchronous request/response cycle. Telethon's
+        # default (60s) silently sleeps through short flood-waits instead of
+        # raising, which would freeze the request instead of surfacing a
+        # proper "please wait" error via our FloodWaitError handling.
+        flood_sleep_threshold=0,
     )
 
 
@@ -150,7 +157,7 @@ async def _get_messages(client, chat_id, before_id, limit):
             "id": m.id,
             "out": bool(m.out),
             "sender_id": m.sender_id,
-            "text": m.message or "",
+            "text": m.message or "[non-text message]",
             "date": m.date.isoformat() if m.date else None,
         }
         for m in messages

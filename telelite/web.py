@@ -1,0 +1,213 @@
+import hashlib
+import hmac
+import secrets
+from functools import wraps
+
+from flask import Blueprint, g, redirect, render_template, request, url_for
+
+from . import config, crypto, db
+from .telegram_client import (
+    TeleliteError,
+    get_messages,
+    list_dialogs,
+    log_out,
+    send_code,
+    send_message,
+    verify_code,
+)
+from .utils import parse_chat_id
+
+bp = Blueprint("web", __name__, url_prefix="/web")
+
+MESSAGES_PER_PAGE = 20
+
+
+def _csrf_token(session_token):
+    return hmac.new(
+        config.FLASK_SECRET_KEY.encode(), session_token.encode(), hashlib.sha256
+    ).hexdigest()
+
+
+def _check_csrf(session_token, submitted):
+    return bool(submitted) and hmac.compare_digest(_csrf_token(session_token), submitted)
+
+
+def require_web_auth(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        token = request.cookies.get(config.COOKIE_NAME)
+        session_row = db.get_session(token) if token else None
+        if session_row is None:
+            return redirect(url_for("web.login_phone"))
+        g.token = token
+        g.session_string = crypto.decrypt(session_row["encrypted_session"])
+        g.csrf_token = _csrf_token(token)
+        return fn(*args, **kwargs)
+
+    return wrapper
+
+
+@bp.route("/login", methods=["GET"])
+def login_phone():
+    return render_template("login_phone.html", error=None, phone_number="")
+
+
+@bp.route("/login", methods=["POST"])
+def login_submit():
+    phone_number = (request.form.get("phone_number") or "").strip()
+    if not phone_number:
+        return render_template(
+            "login_phone.html", error="Phone number is required.", phone_number=""
+        )
+    try:
+        session_string, phone_code_hash = send_code(phone_number)
+    except TeleliteError as e:
+        return render_template("login_phone.html", error=str(e), phone_number=phone_number)
+
+    pending_id = secrets.token_urlsafe(16)
+    db.create_pending_login(
+        pending_id, phone_number, phone_code_hash, crypto.encrypt(session_string)
+    )
+    return render_template(
+        "login_code.html", pending_id=pending_id, error=None, needs_password=False
+    )
+
+
+@bp.route("/login/verify", methods=["POST"])
+def login_verify():
+    pending_id = request.form.get("pending_id")
+    code = (request.form.get("code") or "").strip()
+    password = request.form.get("password")
+
+    pending = db.get_pending_login(pending_id) if pending_id else None
+    if pending is None:
+        return render_template(
+            "login_phone.html", error="Login expired, please start over.", phone_number=""
+        )
+    if not code:
+        return render_template(
+            "login_code.html",
+            pending_id=pending_id,
+            error="Code is required.",
+            needs_password=password is not None,
+        )
+
+    session_string = crypto.decrypt(pending["encrypted_session"])
+    try:
+        new_session_string, telegram_user_id = verify_code(
+            session_string, pending["phone_number"], pending["phone_code_hash"], code, password
+        )
+    except TeleliteError as e:
+        return render_template(
+            "login_code.html",
+            pending_id=pending_id,
+            error=str(e),
+            needs_password=(e.code == "needs_password"),
+        )
+
+    db.delete_pending_login(pending_id)
+    token = secrets.token_urlsafe(32)
+    db.create_session(
+        token, telegram_user_id, pending["phone_number"], crypto.encrypt(new_session_string)
+    )
+    resp = redirect(url_for("web.chats"))
+    resp.set_cookie(config.COOKIE_NAME, token, httponly=True, samesite="Lax")
+    return resp
+
+
+@bp.route("/chats", methods=["GET"])
+@require_web_auth
+def chats():
+    try:
+        dialogs = list_dialogs(g.session_string)
+        error = None
+    except TeleliteError as e:
+        dialogs = []
+        error = str(e)
+    return render_template(
+        "chats.html", chats=dialogs, error=error, csrf_token=g.csrf_token
+    )
+
+
+def _chat_name(chat_id):
+    return request.values.get("name") or f"Chat {chat_id}"
+
+
+@bp.route("/chats/<chat_id>", methods=["GET"])
+@require_web_auth
+def conversation(chat_id):
+    parsed_chat_id = parse_chat_id(chat_id)
+    if parsed_chat_id is None:
+        return redirect(url_for("web.chats"))
+
+    before_id = request.args.get("before_id", type=int)
+    try:
+        msgs = get_messages(
+            g.session_string, parsed_chat_id, before_id=before_id, limit=MESSAGES_PER_PAGE
+        )
+        error = None
+    except TeleliteError as e:
+        msgs = []
+        error = str(e)
+
+    return render_template(
+        "conversation.html",
+        chat_id=parsed_chat_id,
+        chat_name=_chat_name(parsed_chat_id),
+        messages=msgs,
+        error=error,
+        has_more=len(msgs) == MESSAGES_PER_PAGE,
+        oldest_id=msgs[0]["id"] if msgs else None,
+        draft_text="",
+        csrf_token=g.csrf_token,
+    )
+
+
+@bp.route("/chats/<chat_id>/reply", methods=["POST"])
+@require_web_auth
+def reply(chat_id):
+    parsed_chat_id = parse_chat_id(chat_id)
+    if parsed_chat_id is None:
+        return redirect(url_for("web.chats"))
+
+    chat_name = _chat_name(parsed_chat_id)
+    text = (request.form.get("text") or "").strip()
+
+    def render_with_error(error_message):
+        try:
+            msgs = get_messages(g.session_string, parsed_chat_id, limit=MESSAGES_PER_PAGE)
+        except TeleliteError:
+            msgs = []
+        return render_template(
+            "conversation.html",
+            chat_id=parsed_chat_id,
+            chat_name=chat_name,
+            messages=msgs,
+            error=error_message,
+            has_more=len(msgs) == MESSAGES_PER_PAGE,
+            oldest_id=msgs[0]["id"] if msgs else None,
+            draft_text=text,
+            csrf_token=g.csrf_token,
+        )
+
+    if not _check_csrf(g.token, request.form.get("csrf_token")):
+        return render_with_error("Security check failed, please try again.")
+    if not text:
+        return render_with_error("Message text is required.")
+    try:
+        send_message(g.session_string, parsed_chat_id, text)
+    except TeleliteError as e:
+        return render_with_error(str(e))
+
+    return redirect(url_for("web.conversation", chat_id=parsed_chat_id, name=chat_name), code=303)
+
+
+@bp.route("/logout", methods=["POST"])
+@require_web_auth
+def logout():
+    if _check_csrf(g.token, request.form.get("csrf_token")):
+        log_out(g.session_string)
+        db.delete_session(g.token)
+    resp = redirect(url_for("web.login_phone"))
+    resp.delete_cookie(config.COOKIE_NAME)
+    return resp

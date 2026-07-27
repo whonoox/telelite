@@ -7,3 +7,4 @@ data/
 .venv/
 venv/
 .claude/
+.cli_test_token

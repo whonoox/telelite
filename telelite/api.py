@@ -3,7 +3,7 @@ from functools import wraps
 
 from flask import Blueprint, g, jsonify, request
 
-from . import crypto, db
+from . import config, crypto, db
 from .telegram_client import (
     TeleliteError,
     get_messages,
@@ -13,10 +13,11 @@ from .telegram_client import (
     send_message,
     verify_code,
 )
+from .utils import parse_chat_id
 
 bp = Blueprint("api", __name__)
 
-COOKIE_NAME = "telelite_token"
+COOKIE_NAME = config.COOKIE_NAME
 
 
 def _get_token():
@@ -45,13 +46,6 @@ def require_auth(fn):
 def _error_response(e: TeleliteError):
     status = 429 if e.code == "flood_wait" else 400
     return jsonify(error=e.code, message=str(e), retry_after=e.retry_after), status
-
-
-def _parse_chat_id(raw):
-    try:
-        return int(raw)
-    except (TypeError, ValueError):
-        return None
 
 
 @bp.before_app_request
@@ -124,7 +118,7 @@ def chats():
 @bp.route("/chats/<chat_id>/messages", methods=["GET"])
 @require_auth
 def get_chat_messages(chat_id):
-    parsed_chat_id = _parse_chat_id(chat_id)
+    parsed_chat_id = parse_chat_id(chat_id)
     if parsed_chat_id is None:
         return jsonify(error="invalid_request", message="chat_id must be an integer"), 400
     before_id = request.args.get("before_id", type=int)
@@ -139,7 +133,7 @@ def get_chat_messages(chat_id):
 @bp.route("/chats/<chat_id>/messages", methods=["POST"])
 @require_auth
 def post_chat_message(chat_id):
-    parsed_chat_id = _parse_chat_id(chat_id)
+    parsed_chat_id = parse_chat_id(chat_id)
     if parsed_chat_id is None:
         return jsonify(error="invalid_request", message="chat_id must be an integer"), 400
     data = request.get_json(silent=True) or {}

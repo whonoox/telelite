@@ -1,0 +1,16 @@
+<title>TeleLite Chats</title>
+<h1>Chats</h1>
+{% if error %}<p>Error: {{ error }}</p>{% endif %}
+{% if chats %}
+<ol>
+{% for chat in chats %}
+<li><a href="{{ url_for('web.conversation', chat_id=chat.chat_id, name=chat.name) }}">{{ chat.name }}{% if chat.unread_count %} ({{ chat.unread_count }}){% endif %}</a></li>
+{% endfor %}
+</ol>
+{% else %}
+<p>No chats found.</p>
+{% endif %}
+<form method="post" action="/web/logout">
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+<p><input type="submit" value="Logout"></p>
+</form>

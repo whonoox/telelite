@@ -19,3 +19,4 @@ FLASK_SECRET_KEY = _require("FLASK_SECRET_KEY")
 SESSION_TTL_HOURS = int(os.environ.get("SESSION_TTL_HOURS", "24"))
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "data/telelite.db")
 PENDING_LOGIN_TTL_MINUTES = int(os.environ.get("PENDING_LOGIN_TTL_MINUTES", "10"))
+COOKIE_NAME = "telelite_token"

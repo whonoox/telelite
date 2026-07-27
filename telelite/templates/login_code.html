@@ -1,0 +1,14 @@
+<title>TeleLite Login</title>
+<h1>Enter code</h1>
+{% if error %}<p>Error: {{ error }}</p>{% endif %}
+<p>Check your Telegram app for the login code.</p>
+<form method="post" action="/web/login/verify">
+<input type="hidden" name="pending_id" value="{{ pending_id }}">
+<p>Code:<br>
+<input type="text" name="code" size="10"></p>
+{% if needs_password %}
+<p>2FA password:<br>
+<input type="password" name="password" size="20"></p>
+{% endif %}
+<p><input type="submit" value="Verify"></p>
+</form>
