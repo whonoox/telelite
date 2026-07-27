@@ -1,0 +1,5 @@
+telethon==1.36.0
+flask==3.0.3
+cryptography==42.0.8
+python-dotenv==1.0.1
+requests==2.32.3
