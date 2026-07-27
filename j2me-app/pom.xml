@@ -1,0 +1,162 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.telelite</groupId>
+  <artifactId>telelite-j2me</artifactId>
+  <version>1.0.0</version>
+  <packaging>jar</packaging>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <jdk8.home>${env.JDK8_HOME}</jdk8.home>
+    <midlet.class>com.telelite.midlet.TeleLiteMIDlet</midlet.class>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.microemu</groupId>
+      <artifactId>cldcapi10</artifactId>
+      <version>2.0.4</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.microemu</groupId>
+      <artifactId>midpapi20</artifactId>
+      <version>2.0.4</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>telelite-j2me-${project.version}</finalName>
+    <plugins>
+
+      <!-- Resolve the stub jars to absolute paths, exposed as
+           ${org.microemu:cldcapi10:jar} / ${org.microemu:midpapi20:jar} -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.6.1</version>
+        <executions>
+          <execution>
+            <id>resolve-cldc-midp-stubs</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>properties</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Compile against the CLDC/MIDP-only bootclasspath, forked to a real JDK 8 javac
+           (Maven itself only has JDK 17 here, whose javac can't emit old enough class files) -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+        <configuration>
+          <source>1.4</source>
+          <target>1.4</target>
+          <fork>true</fork>
+          <executable>${jdk8.home}/bin/javac</executable>
+          <compilerArgs>
+            <arg>-bootclasspath</arg>
+            <arg>${org.microemu:cldcapi10:jar}${path.separator}${org.microemu:midpapi20:jar}</arg>
+          </compilerArgs>
+          <showWarnings>true</showWarnings>
+        </configuration>
+      </plugin>
+
+      <!-- Package with MIDlet manifest attributes -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.1</version>
+        <configuration>
+          <archive>
+            <addMavenDescriptor>false</addMavenDescriptor>
+            <manifestEntries>
+              <MIDlet-1>TeleLite,,${midlet.class}</MIDlet-1>
+              <MIDlet-Name>TeleLite</MIDlet-Name>
+              <MIDlet-Vendor>TeleLite</MIDlet-Vendor>
+              <MIDlet-Version>${project.version}</MIDlet-Version>
+              <MicroEdition-Configuration>CLDC-1.1</MicroEdition-Configuration>
+              <MicroEdition-Profile>MIDP-2.0</MicroEdition-Profile>
+            </manifestEntries>
+          </archive>
+        </configuration>
+      </plugin>
+
+      <!-- Preverify via ProGuard's -microedition flag (replaces Sun's separate preverify tool).
+           Bound to pre-integration-test (strictly after package) to avoid same-phase ordering
+           ambiguity with maven-jar-plugin. -->
+      <plugin>
+        <groupId>com.github.wvengen</groupId>
+        <artifactId>proguard-maven-plugin</artifactId>
+        <version>2.7.0</version>
+        <executions>
+          <execution>
+            <id>preverify</id>
+            <phase>pre-integration-test</phase>
+            <goals>
+              <goal>proguard</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <injar>${project.build.finalName}.jar</injar>
+          <outjar>${project.build.finalName}-preverified.jar</outjar>
+          <outputDirectory>${project.build.directory}</outputDirectory>
+          <obfuscate>false</obfuscate>
+          <options>
+            <option>-microedition</option>
+            <option>-dontshrink</option>
+            <option>-dontoptimize</option>
+            <option>-dontwarn</option>
+            <option>-keep public class ${midlet.class}</option>
+          </options>
+        </configuration>
+        <dependencies>
+          <dependency>
+            <groupId>net.sf.proguard</groupId>
+            <artifactId>proguard-base</artifactId>
+            <version>6.2.2</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+
+      <!-- Generate the .jad: copy the preverified jar to its deploy name, measure its real
+           byte size, stamp MIDlet-Jar-Size so it always matches the shipped bytes. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <version>3.1.0</version>
+        <executions>
+          <execution>
+            <id>generate-jad</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <property name="final.jar" value="${project.build.directory}/${project.build.finalName}-preverified.jar"/>
+                <property name="deploy.jar" value="${project.build.directory}/telelite-j2me.jar"/>
+                <copy file="${final.jar}" tofile="${deploy.jar}" overwrite="true"/>
+                <length file="${deploy.jar}" property="jad.jar.size"/>
+                <echo message="Preverified deployable jar size: ${jad.jar.size} bytes"/>
+                <filter token="JAR_SIZE" value="${jad.jar.size}"/>
+                <copy file="${project.basedir}/src/main/jad/telelite.jad.template"
+                      tofile="${project.build.directory}/telelite-j2me.jad"
+                      overwrite="true" filtering="true"/>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+    </plugins>
+  </build>
+</project>

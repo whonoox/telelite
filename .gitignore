@@ -8,3 +8,4 @@ data/
 venv/
 .claude/
 .cli_test_token
+j2me-app/target/

@@ -1,0 +1,8 @@
+MIDlet-1: TeleLite,,com.telelite.midlet.TeleLiteMIDlet
+MIDlet-Name: TeleLite
+MIDlet-Vendor: TeleLite
+MIDlet-Version: 1.0.0
+MIDlet-Jar-URL: telelite-j2me.jar
+MIDlet-Jar-Size: @JAR_SIZE@
+MicroEdition-Configuration: CLDC-1.1
+MicroEdition-Profile: MIDP-2.0
