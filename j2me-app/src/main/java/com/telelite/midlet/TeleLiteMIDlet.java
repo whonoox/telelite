@@ -1,40 +1,27 @@
 package com.telelite.midlet;
 
-import java.util.Hashtable;
-import javax.microedition.lcdui.Alert;
-import javax.microedition.lcdui.AlertType;
-import javax.microedition.lcdui.Command;
-import javax.microedition.lcdui.CommandListener;
 import javax.microedition.lcdui.Display;
-import javax.microedition.lcdui.Displayable;
-import javax.microedition.lcdui.Form;
-import javax.microedition.lcdui.TextField;
 import javax.microedition.midlet.MIDlet;
 
-import com.telelite.midlet.json.Json;
-import com.telelite.midlet.json.JsonBuilder;
-import com.telelite.midlet.net.ApiClient;
-import com.telelite.midlet.net.ApiException;
-import com.telelite.midlet.net.ApiResponse;
+import com.telelite.midlet.model.Chat;
+import com.telelite.midlet.storage.TokenStore;
+import com.telelite.midlet.ui.ChatListScreen;
+import com.telelite.midlet.ui.ConversationScreen;
+import com.telelite.midlet.ui.LoginCodeScreen;
+import com.telelite.midlet.ui.LoginPhoneScreen;
 
-public class TeleLiteMIDlet extends MIDlet implements CommandListener {
+public class TeleLiteMIDlet extends MIDlet {
 
     private Display display;
-    private Command sendCommand;
-    private Form phoneForm;
-    private TextField phoneField;
 
     protected void startApp() {
         display = Display.getDisplay(this);
-        sendCommand = new Command("Send", Command.OK, 1);
-
-        phoneForm = new Form("TeleLite Login");
-        phoneField = new TextField("Phone number", "", 20, TextField.PHONENUMBER);
-        phoneForm.append(phoneField);
-        phoneForm.addCommand(sendCommand);
-        phoneForm.setCommandListener(this);
-
-        display.setCurrent(phoneForm);
+        String token = TokenStore.loadToken();
+        if (token != null) {
+            showChatList(token);
+        } else {
+            showLoginPhone();
+        }
     }
 
     protected void pauseApp() {
@@ -43,42 +30,38 @@ public class TeleLiteMIDlet extends MIDlet implements CommandListener {
     protected void destroyApp(boolean unconditional) {
     }
 
-    public void commandAction(Command c, Displayable d) {
-        if (c == sendCommand) {
-            final String phoneNumber = phoneField.getString();
-            new Thread(new Runnable() {
-                public void run() {
-                    doLoginRequest(phoneNumber);
-                }
-            }).start();
-        }
+    public Display getDisplay() {
+        return display;
     }
 
-    private void doLoginRequest(String phoneNumber) {
-        String body = new JsonBuilder().put("phone_number", phoneNumber).build();
-        String message;
-        try {
-            ApiResponse resp = ApiClient.post("/login/request", body, null);
-            Hashtable json = (Hashtable) Json.parse(resp.body);
-            Object pendingId = json.get("pending_id");
-            if (pendingId != null) {
-                message = "pending_id: " + pendingId;
-            } else {
-                Object error = json.get("error");
-                Object msg = json.get("message");
-                message = "Error: " + error + (msg != null ? " (" + msg + ")" : "");
-            }
-        } catch (ApiException e) {
-            message = "Network error: " + e.getMessage();
-        } catch (Exception e) {
-            message = "Parse error: " + e;
-        }
-        showResult(message);
+    public void showLoginPhone() {
+        display.setCurrent(new LoginPhoneScreen(this));
     }
 
-    private void showResult(final String message) {
-        final Alert alert = new Alert("Result", message, null, AlertType.INFO);
-        alert.setTimeout(Alert.FOREVER);
-        display.setCurrent(alert, phoneForm);
+    public void showLoginCode(String pendingId, String phoneNumber, String errorMessage, boolean needsPassword) {
+        display.setCurrent(new LoginCodeScreen(this, pendingId, phoneNumber, errorMessage, needsPassword));
+    }
+
+    public void onLoginSuccess(String token) {
+        TokenStore.saveToken(token);
+        showChatList(token);
+    }
+
+    public void showChatList(String token) {
+        display.setCurrent(new ChatListScreen(this, token));
+    }
+
+    public void showConversation(String token, Chat chat) {
+        display.setCurrent(new ConversationScreen(this, token, chat));
+    }
+
+    public void onLogout() {
+        TokenStore.clearToken();
+        showLoginPhone();
+    }
+
+    public void onSessionExpired() {
+        TokenStore.clearToken();
+        showLoginPhone();
     }
 }
