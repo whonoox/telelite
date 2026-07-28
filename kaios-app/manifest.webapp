@@ -1,0 +1,21 @@
+{
+  "name": "TeleLite",
+  "description": "Reply to your Telegram messages from a feature phone.",
+  "launch_path": "/index.html",
+  "type": "web",
+  "version": "1.0.0",
+  "icons": {
+    "56": "/icons/icon-56.png",
+    "112": "/icons/icon-112.png"
+  },
+  "developer": {
+    "name": "TeleLite",
+    "url": "https://github.com/"
+  },
+  "default_locale": "en",
+  "chrome": {
+    "navigation": false
+  },
+  "orientation": ["portrait-primary"],
+  "fullscreen": true
+}
