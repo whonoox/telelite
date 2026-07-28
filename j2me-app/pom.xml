@@ -12,6 +12,9 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <jdk8.home>${env.JDK8_HOME}</jdk8.home>
     <midlet.class>com.telelite.midlet.TeleLiteMIDlet</midlet.class>
+    <!-- Self-hosters: override with -Dtelelite.server.url=https://your-domain.example
+         to point a build at your own backend without touching any source. -->
+    <telelite.server.url>http://127.0.0.1:5000</telelite.server.url>
   </properties>
 
   <dependencies>
@@ -147,6 +150,7 @@
                 <length file="${deploy.jar}" property="jad.jar.size"/>
                 <echo message="Preverified deployable jar size: ${jad.jar.size} bytes"/>
                 <filter token="JAR_SIZE" value="${jad.jar.size}"/>
+                <filter token="SERVER_URL" value="${telelite.server.url}"/>
                 <copy file="${project.basedir}/src/main/jad/telelite.jad.template"
                       tofile="${project.build.directory}/telelite-j2me.jad"
                       overwrite="true" filtering="true"/>

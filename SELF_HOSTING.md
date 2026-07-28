@@ -1,0 +1,79 @@
+# Self-hosting TeleLite
+
+TeleLite has no central server and no third-party account required beyond
+your own Telegram API credentials. It's just a Flask app + SQLite database
+that you run yourself — every deployment is independent, and nobody but you
+ever sees your encrypted session data.
+
+## 1. Run the backend
+
+```
+git clone <this repo>
+cd telelight
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+```
+
+Fill in `.env`:
+- `TELEGRAM_API_ID` / `TELEGRAM_API_HASH` — from https://my.telegram.org, using
+  your own Telegram account. These identify your deployment to Telegram, not
+  any individual user.
+- `MASTER_KEY` — encrypts every stored Telegram session at rest. Generate it
+  once with the command in `.env.example` and **back it up somewhere safe**:
+  losing it makes all existing logged-in sessions permanently undecryptable
+  (users would just need to log in again — no data loss beyond that).
+- `FLASK_SECRET_KEY` — signs the browser client's session cookie.
+
+Then:
+```
+python run.py
+```
+
+## 2. Before exposing this beyond localhost
+
+`run.py` binds `127.0.0.1` with Flask's debug mode on — correct for local
+development, **not safe to expose directly to the internet** (the debug
+mode's interactive debugger allows remote code execution if reachable).
+For a real deployment:
+
+- Turn off debug mode and run behind a real WSGI server, e.g.
+  `gunicorn -w 2 -b 127.0.0.1:5000 'telelite.app:create_app()'`
+  (add `gunicorn` to your own requirements).
+- Put a reverse proxy (nginx, Caddy, Render/Railway's built-in proxy, etc.) in
+  front of it with HTTPS — plain HTTP means phone numbers, login codes, and
+  message text cross the network unencrypted.
+- Bind the app itself to `127.0.0.1` (loopback) and let the reverse proxy be
+  the only thing exposed publicly.
+
+## 3. Pointing each client at your own server
+
+Every client defaults to `http://127.0.0.1:5000` for local development. To
+distribute a build that talks to your real deployment:
+
+- **Browser client**: nothing to change — it's server-rendered from the same
+  Flask app, so it always talks to wherever you deployed it.
+- **KaiOS app**: edit the one line in `kaios-app/js/config.js`
+  (`API_BASE_URL`) to your server's HTTPS URL before packaging the app.
+- **J2ME app**: build with your server URL as a Maven property, no source
+  changes needed:
+  ```
+  mvn -Djdk8.home=$JDK8_HOME -Dtelelite.server.url=https://your-domain.example clean verify
+  ```
+  This gets baked into the generated `.jad` as a `TeleLite-Server-URL`
+  property, which the MIDlet reads at startup.
+
+## 4. What's stored, and for how long
+
+- Telegram session strings are encrypted at rest with `MASTER_KEY` (see
+  `telelite/crypto.py`, `telelite/db.py`).
+- Logged-in sessions use a sliding expiry (`SESSION_TTL_HOURS`, default 24h):
+  any authenticated request extends it; going quiet for that long invalidates
+  the token and the row is purged.
+- Pending logins (phone number submitted, code not yet entered) expire after
+  `PENDING_LOGIN_TTL_MINUTES` (default 10 min).
+- Logout (`POST /logout`) deletes the session row immediately — no grace
+  period.
+
+None of this requires trusting anyone but yourself: you hold `MASTER_KEY`,
+you run the database, you control the server your clients talk to.

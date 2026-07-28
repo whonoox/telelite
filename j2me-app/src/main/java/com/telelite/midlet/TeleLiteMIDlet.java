@@ -4,6 +4,7 @@ import javax.microedition.lcdui.Display;
 import javax.microedition.midlet.MIDlet;
 
 import com.telelite.midlet.model.Chat;
+import com.telelite.midlet.net.ApiClient;
 import com.telelite.midlet.storage.TokenStore;
 import com.telelite.midlet.ui.ChatListScreen;
 import com.telelite.midlet.ui.ConversationScreen;
@@ -16,6 +17,7 @@ public class TeleLiteMIDlet extends MIDlet {
 
     protected void startApp() {
         display = Display.getDisplay(this);
+        ApiClient.setBaseUrl(getAppProperty("TeleLite-Server-URL"));
         String token = TokenStore.loadToken();
         if (token != null) {
             showChatList(token);

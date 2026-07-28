@@ -9,9 +9,16 @@ import javax.microedition.io.HttpConnection;
 
 public final class ApiClient {
 
-    private static final String BASE_URL = "http://127.0.0.1:5000";
+    private static String baseUrl = "http://127.0.0.1:5000";
 
     private ApiClient() {
+    }
+
+    /** Self-hosters: set from the MIDlet's "TeleLite-Server-URL" jad property at startup. */
+    public static void setBaseUrl(String url) {
+        if (url != null && url.length() > 0) {
+            baseUrl = url;
+        }
     }
 
     public static ApiResponse get(String path, String token) throws ApiException {
@@ -28,7 +35,7 @@ public final class ApiClient {
         OutputStream os = null;
         InputStream is = null;
         try {
-            conn = (HttpConnection) Connector.open(BASE_URL + path, Connector.READ_WRITE);
+            conn = (HttpConnection) Connector.open(baseUrl + path, Connector.READ_WRITE);
             conn.setRequestMethod(method);
             if (token != null) {
                 conn.setRequestProperty("Authorization", "Bearer " + token);
