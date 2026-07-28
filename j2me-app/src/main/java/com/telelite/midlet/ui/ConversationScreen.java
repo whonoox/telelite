@@ -47,7 +47,9 @@ public class ConversationScreen extends Form implements CommandListener {
         olderCommand = new Command("Older", Command.SCREEN, 2);
 
         addCommand(backCommand);
-        addCommand(sendCommand);
+        if (chat.canReply) {
+            addCommand(sendCommand);
+        }
         setCommandListener(this);
 
         loadMessages(null);
@@ -132,10 +134,12 @@ public class ConversationScreen extends Form implements CommandListener {
             append(item);
         }
 
-        if (replyField == null) {
-            replyField = new TextField("Reply", "", 500, TextField.ANY);
+        if (chat.canReply) {
+            if (replyField == null) {
+                replyField = new TextField("Reply", "", 500, TextField.ANY);
+            }
+            append(replyField);
         }
-        append(replyField);
     }
 
     private void setStatus(String s) {
@@ -150,7 +154,7 @@ public class ConversationScreen extends Form implements CommandListener {
     public void commandAction(Command c, Displayable d) {
         if (c == backCommand) {
             midlet.showChatList(token);
-        } else if (c == sendCommand) {
+        } else if (c == sendCommand && replyField != null) {
             final String text = replyField.getString();
             if (text.length() == 0) {
                 return;

@@ -55,7 +55,9 @@ public class ChatListScreen extends List implements CommandListener {
                     long chatId = ((Long) c.get("chat_id")).longValue();
                     String name = (String) c.get("name");
                     int unread = (int) ((Long) c.get("unread_count")).longValue();
-                    parsed.addElement(new Chat(chatId, name, unread));
+                    Object canReplyObj = c.get("can_reply");
+                    boolean canReply = !(canReplyObj instanceof Boolean) || ((Boolean) canReplyObj).booleanValue();
+                    parsed.addElement(new Chat(chatId, name, unread, canReply));
                 }
                 populate(parsed);
             } else {

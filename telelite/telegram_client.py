@@ -127,6 +127,11 @@ async def _list_dialogs(client):
             "unread_count": d.unread_count,
             "last_message": d.message.text if d.message else None,
             "last_message_date": d.date.isoformat() if d.date else None,
+            # Broadcast channels don't let regular members post; private chats,
+            # basic groups, and supergroups (megagroups) do. Only real
+            # (non-megagroup) Channel entities carry `.broadcast`, so this
+            # defaults to True (repliable) for every other dialog type.
+            "can_reply": not getattr(d.entity, "broadcast", False),
         }
         for d in dialogs
     ]
