@@ -120,13 +120,15 @@ async def _resolve_entity(client, chat_id):
 
 async def _list_dialogs(client):
     dialogs = await client.get_dialogs(limit=50)
+    # Data usage matters here (this is the payload every feature-phone client
+    # fetches to render the chat list): no client renders a last-message
+    # preview or its timestamp today, so they're left out entirely rather
+    # than shipped as dead weight over a slow connection.
     return [
         {
             "chat_id": d.id,
             "name": d.name or getattr(d.entity, "title", None) or str(d.id),
             "unread_count": d.unread_count,
-            "last_message": d.message.text if d.message else None,
-            "last_message_date": d.date.isoformat() if d.date else None,
             # Broadcast channels don't let regular members post; private chats,
             # basic groups, and supergroups (megagroups) do. Only real
             # (non-megagroup) Channel entities carry `.broadcast`, so this
@@ -157,13 +159,14 @@ async def _get_messages(client, chat_id, before_id, limit):
         kwargs["max_id"] = before_id
     messages = list(await client.get_messages(entity, **kwargs))
     messages.reverse()  # oldest -> newest, per v1 conversation-view spec
+    # sender_id and date aren't rendered by any client (v1 conversation view
+    # only shows out/text) -- left out of the payload rather than shipped
+    # as dead weight over a slow connection.
     return [
         {
             "id": m.id,
             "out": bool(m.out),
-            "sender_id": m.sender_id,
             "text": m.message or "[non-text message]",
-            "date": m.date.isoformat() if m.date else None,
         }
         for m in messages
     ]
