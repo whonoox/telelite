@@ -112,7 +112,6 @@
           <obfuscate>false</obfuscate>
           <options>
             <option>-microedition</option>
-            <option>-dontshrink</option>
             <option>-dontoptimize</option>
             <option>-dontwarn</option>
             <option>-keep public class ${midlet.class}</option>

@@ -19,13 +19,20 @@ public final class Alerts {
         display.setCurrent(alert, back);
     }
 
-    /** Extracts a human message from an error envelope: {"error", "message"?}. */
+    /** Extracts a human message from an error envelope: {"error", "message"?, "retry_after"?}. */
     public static String errorMessage(Hashtable json) {
+        String base;
         Object msg = json.get("message");
         if (msg != null && msg != Json.NULL) {
-            return String.valueOf(msg);
+            base = String.valueOf(msg);
+        } else {
+            Object err = json.get("error");
+            base = err != null ? String.valueOf(err) : "Unknown error";
         }
-        Object err = json.get("error");
-        return err != null ? String.valueOf(err) : "Unknown error";
+        Object retryAfter = json.get("retry_after");
+        if (retryAfter != null && retryAfter != Json.NULL) {
+            base = base + " (retry in " + retryAfter + "s)";
+        }
+        return base;
     }
 }

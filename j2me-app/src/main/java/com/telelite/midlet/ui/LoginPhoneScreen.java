@@ -23,8 +23,16 @@ public class LoginPhoneScreen extends Form implements CommandListener {
     private StringItem statusItem;
 
     public LoginPhoneScreen(TeleLiteMIDlet midlet) {
+        this(midlet, null);
+    }
+
+    public LoginPhoneScreen(TeleLiteMIDlet midlet, String message) {
         super("TeleLite Login");
         this.midlet = midlet;
+
+        if (message != null) {
+            append(new StringItem(null, message));
+        }
 
         phoneField = new TextField("Phone number", "", 20, TextField.PHONENUMBER);
         append(phoneField);

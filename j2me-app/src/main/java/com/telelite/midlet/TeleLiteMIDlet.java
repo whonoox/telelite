@@ -62,6 +62,6 @@ public class TeleLiteMIDlet extends MIDlet {
 
     public void onSessionExpired() {
         TokenStore.clearToken();
-        showLoginPhone();
+        display.setCurrent(new LoginPhoneScreen(this, "Session expired, please log in again."));
     }
 }
