@@ -32,13 +32,26 @@ def _check_csrf(session_token, submitted):
     return bool(submitted) and hmac.compare_digest(_csrf_token(session_token), submitted)
 
 
+def _error_message(e):
+    """Human message for a TeleliteError, with retry_after appended when present."""
+    message = str(e)
+    if e.retry_after:
+        message = f"{message} (retry in {e.retry_after}s)"
+    return message
+
+
+def _can_reply():
+    value = request.values.get("can_reply")
+    return True if value is None else value == "1"
+
+
 def require_web_auth(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
         token = request.cookies.get(config.COOKIE_NAME)
         session_row = db.get_session(token) if token else None
         if session_row is None:
-            return redirect(url_for("web.login_phone"))
+            return redirect(url_for("web.login_phone", expired="1" if token else None))
         g.token = token
         g.session_string = crypto.decrypt(session_row["encrypted_session"])
         g.csrf_token = _csrf_token(token)
@@ -49,7 +62,8 @@ def require_web_auth(fn):
 
 @bp.route("/login", methods=["GET"])
 def login_phone():
-    return render_template("login_phone.html", error=None, phone_number="")
+    error = "Session expired, please log in again." if request.args.get("expired") else None
+    return render_template("login_phone.html", error=error, phone_number="")
 
 
 @bp.route("/login", methods=["POST"])
@@ -62,7 +76,7 @@ def login_submit():
     try:
         session_string, phone_code_hash = send_code(phone_number)
     except TeleliteError as e:
-        return render_template("login_phone.html", error=str(e), phone_number=phone_number)
+        return render_template("login_phone.html", error=_error_message(e), phone_number=phone_number)
 
     pending_id = secrets.token_urlsafe(16)
     db.create_pending_login(
@@ -101,7 +115,7 @@ def login_verify():
         return render_template(
             "login_code.html",
             pending_id=pending_id,
-            error=str(e),
+            error=_error_message(e),
             needs_password=(e.code == "needs_password"),
         )
 
@@ -123,7 +137,7 @@ def chats():
         error = None
     except TeleliteError as e:
         dialogs = []
-        error = str(e)
+        error = _error_message(e)
     return render_template(
         "chats.html", chats=dialogs, error=error, csrf_token=g.csrf_token
     )
@@ -148,12 +162,13 @@ def conversation(chat_id):
         error = None
     except TeleliteError as e:
         msgs = []
-        error = str(e)
+        error = _error_message(e)
 
     return render_template(
         "conversation.html",
         chat_id=parsed_chat_id,
         chat_name=_chat_name(parsed_chat_id),
+        can_reply=_can_reply(),
         messages=msgs,
         error=error,
         has_more=len(msgs) == MESSAGES_PER_PAGE,
@@ -171,6 +186,7 @@ def reply(chat_id):
         return redirect(url_for("web.chats"))
 
     chat_name = _chat_name(parsed_chat_id)
+    can_reply = _can_reply()
     text = (request.form.get("text") or "").strip()
 
     def render_with_error(error_message):
@@ -182,6 +198,7 @@ def reply(chat_id):
             "conversation.html",
             chat_id=parsed_chat_id,
             chat_name=chat_name,
+            can_reply=can_reply,
             messages=msgs,
             error=error_message,
             has_more=len(msgs) == MESSAGES_PER_PAGE,
@@ -192,14 +209,24 @@ def reply(chat_id):
 
     if not _check_csrf(g.token, request.form.get("csrf_token")):
         return render_with_error("Security check failed, please try again.")
+    if not can_reply:
+        return render_with_error("This channel doesn't allow replies.")
     if not text:
         return render_with_error("Message text is required.")
     try:
         send_message(g.session_string, parsed_chat_id, text)
     except TeleliteError as e:
-        return render_with_error(str(e))
+        return render_with_error(_error_message(e))
 
-    return redirect(url_for("web.conversation", chat_id=parsed_chat_id, name=chat_name), code=303)
+    return redirect(
+        url_for(
+            "web.conversation",
+            chat_id=parsed_chat_id,
+            name=chat_name,
+            can_reply="1" if can_reply else "0",
+        ),
+        code=303,
+    )
 
 
 @bp.route("/logout", methods=["POST"])

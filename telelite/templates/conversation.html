@@ -2,17 +2,20 @@
 <h1>{{ chat_name }}</h1>
 {% if error %}<p>Error: {{ error }}</p>{% endif %}
 {% if has_more %}
-<p><a href="{{ url_for('web.conversation', chat_id=chat_id, before_id=oldest_id, name=chat_name) }}">Older messages</a></p>
+<p><a href="{{ url_for('web.conversation', chat_id=chat_id, before_id=oldest_id, name=chat_name, can_reply=(1 if can_reply else 0)) }}">Older messages</a></p>
 {% endif %}
 <ul>
 {% for m in messages %}
 <li>{% if m.out %}Me{% else %}Them{% endif %}: {{ m.text }}</li>
 {% endfor %}
 </ul>
+{% if can_reply %}
 <form method="post" action="{{ url_for('web.reply', chat_id=chat_id) }}">
 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 <input type="hidden" name="name" value="{{ chat_name }}">
+<input type="hidden" name="can_reply" value="{{ '1' if can_reply else '0' }}">
 <p><textarea name="text" rows="3" cols="20">{{ draft_text }}</textarea></p>
 <p><input type="submit" value="Send"></p>
 </form>
+{% endif %}
 <p><a href="{{ url_for('web.chats') }}">Back to chats</a></p>
