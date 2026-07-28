@@ -20,3 +20,7 @@ SESSION_TTL_HOURS = int(os.environ.get("SESSION_TTL_HOURS", "24"))
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "data/telelite.db")
 PENDING_LOGIN_TTL_MINUTES = int(os.environ.get("PENDING_LOGIN_TTL_MINUTES", "10"))
 COOKIE_NAME = "telelite_token"
+
+# Where built client downloads (J2ME .jar/.jad, etc.) are served from. See
+# SELF_HOSTING.md for how to build and drop them here.
+DOWNLOADS_PATH = os.environ.get("DOWNLOADS_PATH", "data/downloads")

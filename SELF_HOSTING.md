@@ -63,7 +63,30 @@ distribute a build that talks to your real deployment:
   This gets baked into the generated `.jad` as a `TeleLite-Server-URL`
   property, which the MIDlet reads at startup.
 
-## 4. What's stored, and for how long
+## 4. Letting people install the J2ME app from your server
+
+The backend can serve the J2ME `.jar`/`.jad` itself, so you only need to
+share one link. Build pointed at your own server, then drop both files where
+the backend expects them:
+
+```
+cd j2me-app
+mvn -Djdk8.home=$JDK8_HOME -Dtelelite.server.url=https://your-domain.example clean verify
+mkdir -p ../data/downloads
+cp target/telelite-j2me.jad target/telelite-j2me.jar ../data/downloads/
+```
+
+(Filenames must stay exactly `telelite-j2me.jad`/`telelite-j2me.jar` — the
+`.jad`'s `MIDlet-Jar-URL` is a relative reference resolved against wherever
+the `.jad` itself was fetched from, so the `.jar` has to sit at that same
+path/name for a phone's installer to find it. `DOWNLOADS_PATH` in `.env` can
+override the `data/downloads` location if you want it elsewhere.)
+
+Once both files are in place, send people to `https://your-domain.example/download/`
+— it's a plain HTML page (works on old phone browsers too) with an install
+link. Opening that link on the phone itself triggers the OTA install flow.
+
+## 5. What's stored, and for how long
 
 - Telegram session strings are encrypted at rest with `MASTER_KEY` (see
   `telelite/crypto.py`, `telelite/db.py`).

@@ -3,6 +3,7 @@ from flask_cors import CORS
 
 from . import config, db
 from .api import bp as api_bp
+from .downloads import bp as downloads_bp
 from .web import bp as web_bp
 
 
@@ -27,6 +28,7 @@ def create_app():
     )
     app.register_blueprint(api_bp)
     app.register_blueprint(web_bp)
+    app.register_blueprint(downloads_bp)
 
     @app.route("/")
     def index():
