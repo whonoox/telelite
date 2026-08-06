@@ -194,6 +194,57 @@ def test_post_message_success(client, session_token):
     assert resp.get_json()["message"]["id"] == 42
 
 
+# ---- avatar ----
+
+
+def test_avatar_requires_auth(client):
+    resp = client.get("/chats/123/avatar")
+    assert resp.status_code == 401
+
+
+def test_avatar_rejects_non_integer_chat_id(client, session_token):
+    token, _ = session_token
+    resp = client.get("/chats/not-an-id/avatar", headers=auth_header(token))
+    assert resp.status_code == 400
+
+
+def test_avatar_404_when_no_photo(client, session_token):
+    token, _ = session_token
+    with patch("telelite.api.get_avatar_thumbnail") as mock_thumb:
+        mock_thumb.return_value = None
+        resp = client.get("/chats/123/avatar", headers=auth_header(token))
+    assert resp.status_code == 404
+
+
+def test_avatar_returns_jpeg_by_default(client, session_token):
+    token, _ = session_token
+    with patch("telelite.api.get_avatar_thumbnail") as mock_thumb:
+        mock_thumb.return_value = b"fake-jpeg-bytes"
+        resp = client.get("/chats/123/avatar", headers=auth_header(token))
+    assert resp.status_code == 200
+    assert resp.mimetype == "image/jpeg"
+    assert resp.data == b"fake-jpeg-bytes"
+    mock_thumb.assert_called_once_with("fake-telethon-session-string", 123, fmt="jpeg")
+
+
+def test_avatar_supports_png_for_j2me(client, session_token):
+    token, _ = session_token
+    with patch("telelite.api.get_avatar_thumbnail") as mock_thumb:
+        mock_thumb.return_value = b"fake-png-bytes"
+        resp = client.get("/chats/123/avatar?fmt=png", headers=auth_header(token))
+    assert resp.status_code == 200
+    assert resp.mimetype == "image/png"
+    mock_thumb.assert_called_once_with("fake-telethon-session-string", 123, fmt="png")
+
+
+def test_avatar_flood_wait_returns_429(client, session_token):
+    token, _ = session_token
+    with patch("telelite.api.get_avatar_thumbnail") as mock_thumb:
+        mock_thumb.side_effect = TeleliteError("Rate limited.", code="flood_wait", retry_after=5)
+        resp = client.get("/chats/123/avatar", headers=auth_header(token))
+    assert resp.status_code == 429
+
+
 # ---- logout ----
 
 

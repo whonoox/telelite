@@ -4,7 +4,7 @@
 {% if chats %}
 <ol>
 {% for chat in chats %}
-<li><a href="{{ url_for('web.conversation', chat_id=chat.chat_id, name=chat.name, can_reply=(1 if chat.can_reply else 0)) }}">{{ chat.name }}{% if chat.unread_count %} ({{ chat.unread_count }}){% endif %}</a></li>
+<li>{% if chat.has_photo %}<img src="{{ url_for('web.avatar', chat_id=chat.chat_id) }}" width="24" height="24" alt=""> {% endif %}<a href="{{ url_for('web.conversation', chat_id=chat.chat_id, name=chat.name, can_reply=(1 if chat.can_reply else 0)) }}">{{ chat.name }}{% if chat.unread_count %} ({{ chat.unread_count }}){% endif %}</a></li>
 {% endfor %}
 </ol>
 {% else %}

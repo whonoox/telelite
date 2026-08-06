@@ -118,6 +118,48 @@ async def _resolve_entity(client, chat_id):
         return await client.get_input_entity(chat_id)
 
 
+async def _resolve_full_entity(client, chat_id):
+    """download_profile_photo needs the *full* entity, not an input entity
+    -- the photo data only lives on the full one. Same fresh-connection
+    cache-miss problem as _resolve_entity: refresh the dialog list once
+    before giving up."""
+    try:
+        return await client.get_entity(chat_id)
+    except ValueError:
+        await client.get_dialogs(limit=100)
+        return await client.get_entity(chat_id)
+
+
+async def _download_avatar(client, chat_id):
+    entity = await _resolve_full_entity(client, chat_id)
+    return await client.download_profile_photo(entity, file=bytes, download_big=False)
+
+
+def download_avatar(session_string, chat_id):
+    """Raw profile-photo bytes for chat_id (Telegram serves these as JPEG),
+    or None if the chat has no photo. Callers own resizing/caching -- this
+    always hits Telegram."""
+    try:
+        return _run(_with_client(session_string, lambda c: _download_avatar(c, chat_id)))
+    except FloodWaitError as e:
+        raise TeleliteError(
+            "Rate limited by Telegram, please wait.", code="flood_wait", retry_after=e.seconds
+        )
+    except TeleliteError:
+        raise
+    except Exception as e:
+        raise TeleliteError(f"Could not load avatar: {e}")
+
+
+def _has_photo(entity):
+    # UserProfilePhotoEmpty/ChatPhotoEmpty (no photo set) carry no photo_id
+    # field at all, unlike the real UserProfilePhoto/ChatPhoto variants --
+    # checking for photo_id is a side-effect-free way to tell them apart
+    # without an extra Telegram round-trip.
+    photo = getattr(entity, "photo", None)
+    return getattr(photo, "photo_id", None) is not None
+
+
 async def _list_dialogs(client):
     dialogs = await client.get_dialogs(limit=50)
     # Data usage matters here (this is the payload every feature-phone client
@@ -134,6 +176,9 @@ async def _list_dialogs(client):
             # (non-megagroup) Channel entities carry `.broadcast`, so this
             # defaults to True (repliable) for every other dialog type.
             "can_reply": not getattr(d.entity, "broadcast", False),
+            # Lets clients skip requesting an avatar for chats that don't
+            # have one, instead of a guaranteed-404 round trip per chat.
+            "has_photo": _has_photo(d.entity),
         }
         for d in dialogs
     ]

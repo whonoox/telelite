@@ -1,9 +1,10 @@
 import secrets
 from functools import wraps
 
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, Response, g, jsonify, request
 
 from . import config, crypto, db
+from .avatars import get_avatar_thumbnail
 from .telegram_client import (
     TeleliteError,
     get_messages,
@@ -113,6 +114,24 @@ def chats():
     except TeleliteError as e:
         return _error_response(e)
     return jsonify(chats=dialogs)
+
+
+@bp.route("/chats/<chat_id>/avatar", methods=["GET"])
+@require_auth
+def get_chat_avatar(chat_id):
+    parsed_chat_id = parse_chat_id(chat_id)
+    if parsed_chat_id is None:
+        return jsonify(error="invalid_request", message="chat_id must be an integer"), 400
+    fmt = "png" if request.args.get("fmt") == "png" else "jpeg"
+    try:
+        thumbnail = get_avatar_thumbnail(g.session_string, parsed_chat_id, fmt=fmt)
+    except TeleliteError as e:
+        return _error_response(e)
+    if thumbnail is None:
+        return jsonify(error="not_found", message="No profile photo for this chat."), 404
+    resp = Response(thumbnail, mimetype=f"image/{fmt}")
+    resp.headers["Cache-Control"] = f"private, max-age={config.AVATAR_CACHE_TTL_HOURS * 3600}"
+    return resp
 
 
 @bp.route("/chats/<chat_id>/messages", methods=["GET"])

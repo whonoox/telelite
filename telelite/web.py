@@ -3,9 +3,10 @@ import hmac
 import secrets
 from functools import wraps
 
-from flask import Blueprint, g, make_response, redirect, render_template, request, url_for
+from flask import Blueprint, Response, abort, g, make_response, redirect, render_template, request, url_for
 
 from . import config, crypto, db
+from .avatars import get_avatar_thumbnail
 from .telegram_client import (
     TeleliteError,
     get_messages,
@@ -158,6 +159,25 @@ def chats():
     return render_template(
         "chats.html", chats=dialogs, error=error, csrf_token=g.csrf_token
     )
+
+
+@bp.route("/chats/<chat_id>/avatar", methods=["GET"])
+@require_web_auth
+def avatar(chat_id):
+    parsed_chat_id = parse_chat_id(chat_id)
+    if parsed_chat_id is None:
+        abort(404)
+    try:
+        thumbnail = get_avatar_thumbnail(g.session_string, parsed_chat_id, fmt="jpeg")
+    except TeleliteError:
+        # Avatars are decorative -- a flaky/rate-limited fetch shouldn't
+        # break the page, just fall back to no image for this chat.
+        thumbnail = None
+    if thumbnail is None:
+        abort(404)
+    resp = Response(thumbnail, mimetype="image/jpeg")
+    resp.headers["Cache-Control"] = f"private, max-age={config.AVATAR_CACHE_TTL_HOURS * 3600}"
+    return resp
 
 
 def _chat_name(chat_id):

@@ -38,6 +38,48 @@ def test_authenticated_request_slides_cookie_expiry(client, session_token):
     assert db.get_session(token) is not None
 
 
+# ---- avatar ----
+
+
+def test_avatar_requires_auth(client):
+    resp = client.get("/web/chats/123/avatar")
+    assert resp.status_code == 302  # redirected to login, like every other /web/* route
+
+
+def test_avatar_404_when_no_photo(client, session_token):
+    token, _ = session_token
+    client.set_cookie("telelite_token", token)
+    with patch("telelite.web.get_avatar_thumbnail") as mock_thumb:
+        mock_thumb.return_value = None
+        resp = client.get("/web/chats/123/avatar")
+    assert resp.status_code == 404
+
+
+def test_avatar_returns_jpeg_with_cache_headers(client, session_token):
+    token, _ = session_token
+    client.set_cookie("telelite_token", token)
+    with patch("telelite.web.get_avatar_thumbnail") as mock_thumb:
+        mock_thumb.return_value = b"fake-jpeg-bytes"
+        resp = client.get("/web/chats/123/avatar")
+    assert resp.status_code == 200
+    assert resp.mimetype == "image/jpeg"
+    assert resp.data == b"fake-jpeg-bytes"
+    assert "max-age" in resp.headers.get("Cache-Control", "")
+    mock_thumb.assert_called_once_with("fake-telethon-session-string", 123, fmt="jpeg")
+
+
+def test_avatar_falls_back_silently_on_telegram_error(client, session_token):
+    """A flaky/rate-limited avatar fetch shouldn't break the page -- it
+    should degrade to no image for that one chat, not a 5xx or an error
+    page in place of the whole chat list."""
+    token, _ = session_token
+    client.set_cookie("telelite_token", token)
+    with patch("telelite.web.get_avatar_thumbnail") as mock_thumb:
+        mock_thumb.side_effect = TeleliteError("Rate limited.", code="flood_wait", retry_after=5)
+        resp = client.get("/web/chats/123/avatar")
+    assert resp.status_code == 404
+
+
 def _extract_pending_id(resp):
     # login_code.html renders `pending_id` into a hidden input.
     body = resp.get_data(as_text=True)

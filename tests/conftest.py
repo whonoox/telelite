@@ -7,6 +7,7 @@ from telelite.app import create_app
 @pytest.fixture
 def app(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "DATABASE_PATH", str(tmp_path / "test.db"))
+    monkeypatch.setattr(config, "AVATAR_CACHE_PATH", str(tmp_path / "avatar_cache"))
     application = create_app()
     application.testing = True
     return application
