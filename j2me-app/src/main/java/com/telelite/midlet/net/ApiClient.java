@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import javax.microedition.io.Connector;
 import javax.microedition.io.HttpConnection;
 
@@ -22,14 +23,23 @@ public final class ApiClient {
     }
 
     public static ApiResponse get(String path, String token) throws ApiException {
-        return request(HttpConnection.GET, path, null, token);
+        RawResponse raw = requestRaw(HttpConnection.GET, path, null, token);
+        return new ApiResponse(raw.status, toUtf8String(raw.body));
     }
 
     public static ApiResponse post(String path, String jsonBody, String token) throws ApiException {
-        return request(HttpConnection.POST, path, jsonBody, token);
+        RawResponse raw = requestRaw(HttpConnection.POST, path, jsonBody, token);
+        return new ApiResponse(raw.status, toUtf8String(raw.body));
     }
 
-    private static ApiResponse request(String method, String path, String jsonBody, String token)
+    /** Like get(), but returns the raw body bytes undecoded -- for binary
+     * responses (e.g. avatar images) where UTF-8 decoding would corrupt
+     * the data. */
+    public static RawResponse getRaw(String path, String token) throws ApiException {
+        return requestRaw(HttpConnection.GET, path, null, token);
+    }
+
+    private static RawResponse requestRaw(String method, String path, String jsonBody, String token)
             throws ApiException {
         HttpConnection conn = null;
         OutputStream os = null;
@@ -51,8 +61,8 @@ public final class ApiClient {
             }
             int status = conn.getResponseCode();
             is = conn.openInputStream();
-            String body = readFully(is);
-            return new ApiResponse(status, body);
+            byte[] body = readFully(is);
+            return new RawResponse(status, body);
         } catch (IOException e) {
             throw new ApiException(e);
         } finally {
@@ -77,13 +87,24 @@ public final class ApiClient {
         }
     }
 
-    private static String readFully(InputStream is) throws IOException {
+    private static byte[] readFully(InputStream is) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         byte[] buf = new byte[512];
         int n;
         while ((n = is.read(buf)) != -1) {
             baos.write(buf, 0, n);
         }
-        return new String(baos.toByteArray(), "UTF-8");
+        return baos.toByteArray();
+    }
+
+    private static String toUtf8String(byte[] bytes) {
+        try {
+            return new String(bytes, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            // UTF-8 is mandatory for every CLDC/MIDP implementation -- this
+            // can't actually happen, but the checked exception still needs
+            // handling.
+            return new String(bytes);
+        }
     }
 }

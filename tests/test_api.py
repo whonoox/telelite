@@ -245,6 +245,69 @@ def test_avatar_flood_wait_returns_429(client, session_token):
     assert resp.status_code == 429
 
 
+# ---- avatar batch (J2ME) ----
+
+
+def test_avatar_batch_requires_auth(client):
+    resp = client.get("/chats/avatars?ids=1,2")
+    assert resp.status_code == 401
+
+
+def test_avatar_batch_requires_ids(client, session_token):
+    token, _ = session_token
+    resp = client.get("/chats/avatars", headers=auth_header(token))
+    assert resp.status_code == 400
+
+
+def test_avatar_batch_rejects_non_integer_id(client, session_token):
+    token, _ = session_token
+    resp = client.get("/chats/avatars?ids=1,not-a-number", headers=auth_header(token))
+    assert resp.status_code == 400
+
+
+def test_avatar_batch_rejects_too_many_ids(client, session_token):
+    token, _ = session_token
+    ids = ",".join(str(i) for i in range(51))
+    resp = client.get(f"/chats/avatars?ids={ids}", headers=auth_header(token))
+    assert resp.status_code == 400
+
+
+def test_avatar_batch_frames_mixed_results(client, session_token):
+    token, _ = session_token
+    with patch("telelite.api.get_avatar_thumbnails") as mock_thumb:
+        mock_thumb.return_value = {1: None, 2: b"abc", 3: None}
+        resp = client.get("/chats/avatars?ids=1,2,3", headers=auth_header(token))
+    assert resp.status_code == 200
+    assert resp.mimetype == "application/octet-stream"
+    # flag byte 0 (no photo), flag byte 1 + 4-byte length (3) + b"abc", flag byte 0
+    assert resp.data == b"\x00" + b"\x01" + b"\x00\x00\x00\x03" + b"abc" + b"\x00"
+    mock_thumb.assert_called_once_with("fake-telethon-session-string", [1, 2, 3], fmt="jpeg")
+
+
+def test_avatar_batch_stops_early_on_flood_wait(client, session_token):
+    token, _ = session_token
+    with patch("telelite.api.get_avatar_thumbnails") as mock_thumb:
+        # Partial dict: the batch function stopped at chat 1 (flood_wait),
+        # so chats 2 and 3 were never fetched. The endpoint must render
+        # them as no-photo and must not make any further Telegram calls.
+        mock_thumb.return_value = {1: None}
+        resp = client.get("/chats/avatars?ids=1,2,3", headers=auth_header(token))
+    assert resp.status_code == 200
+    assert resp.data == b"\x00\x00\x00"  # all three marked as no-photo
+    mock_thumb.assert_called_once_with("fake-telethon-session-string", [1, 2, 3], fmt="jpeg")
+
+
+def test_avatar_batch_default_and_png_format(client, session_token):
+    token, _ = session_token
+    with patch("telelite.api.get_avatar_thumbnails") as mock_thumb:
+        mock_thumb.return_value = {1: b"x"}
+        client.get("/chats/avatars?ids=1", headers=auth_header(token))
+        mock_thumb.assert_called_with("fake-telethon-session-string", [1], fmt="jpeg")
+
+        client.get("/chats/avatars?ids=1&fmt=png", headers=auth_header(token))
+        mock_thumb.assert_called_with("fake-telethon-session-string", [1], fmt="png")
+
+
 # ---- logout ----
 
 

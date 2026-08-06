@@ -24,3 +24,10 @@ COOKIE_NAME = "telelite_token"
 # Where built client downloads (J2ME .jar/.jad, etc.) are served from. See
 # SELF_HOSTING.md for how to build and drop them here.
 DOWNLOADS_PATH = os.environ.get("DOWNLOADS_PATH", "data/downloads")
+
+# Resized profile-photo thumbnails are cached to disk here so a chat list
+# full of avatars doesn't mean a fresh Telegram round-trip per avatar on
+# every page load. TTL trades a bit of staleness (a changed photo can take
+# up to this long to show up) for far fewer Telegram requests.
+AVATAR_CACHE_PATH = os.environ.get("AVATAR_CACHE_PATH", "data/avatar_cache")
+AVATAR_CACHE_TTL_HOURS = int(os.environ.get("AVATAR_CACHE_TTL_HOURS", "24"))

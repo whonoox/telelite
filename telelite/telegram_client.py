@@ -151,6 +151,45 @@ def download_avatar(session_string, chat_id):
         raise TeleliteError(f"Could not load avatar: {e}")
 
 
+async def _download_avatars(client, chat_ids):
+    """Raw profile-photo bytes for several chats on one connection.
+    Returns {chat_id: bytes|None}; None means "verified no photo". Chats
+    that errored, or that were never reached because a flood_wait stopped
+    the batch early, are absent from the dict."""
+    result = {}
+    for chat_id in chat_ids:
+        try:
+            entity = await _resolve_full_entity(client, chat_id)
+            result[chat_id] = await client.download_profile_photo(
+                entity, file=bytes, download_big=False
+            )
+        except ValueError:
+            result[chat_id] = None
+        except FloodWaitError:
+            # Rate-limited right now; further requests on this connection
+            # would keep hitting the same limit, so stop and return what
+            # we already have. The first _resolve_full_entity cache-miss
+            # repopulates the entity cache (get_dialogs), so the rest of
+            # the batch costs only one photo call each.
+            break
+        except Exception:
+            # One bad chat shouldn't sink the whole batch.
+            continue
+    return result
+
+
+def download_avatars(session_string, chat_ids):
+    """Batch version of download_avatar: ONE Telegram connection for the
+    whole batch, instead of one full MTProto handshake per chat (a cold
+    cache of ~30 avatars used to mean ~30 sequential handshakes)."""
+    try:
+        return _run(_with_client(session_string, lambda c: _download_avatars(c, chat_ids)))
+    except TeleliteError:
+        raise
+    except Exception as e:
+        raise TeleliteError(f"Could not load avatars: {e}")
+
+
 def _has_photo(entity):
     # UserProfilePhotoEmpty/ChatPhotoEmpty (no photo set) carry no photo_id
     # field at all, unlike the real UserProfilePhoto/ChatPhoto variants --
