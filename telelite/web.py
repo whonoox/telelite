@@ -3,7 +3,7 @@ import hmac
 import secrets
 from functools import wraps
 
-from flask import Blueprint, g, redirect, render_template, request, url_for
+from flask import Blueprint, g, make_response, redirect, render_template, request, url_for
 
 from . import config, crypto, db
 from .telegram_client import (
@@ -45,6 +45,23 @@ def _can_reply():
     return True if value is None else value == "1"
 
 
+def _set_session_cookie(resp, token):
+    # Feature-phone browsers routinely close/restart between visits; without
+    # an explicit lifetime this is a "session cookie" that dies with them,
+    # forcing a re-login even though the server-side session (see
+    # db.get_session, which slides expires_at forward on every request) is
+    # still perfectly valid. Re-set on every authenticated request so the
+    # cookie's lifetime slides in lockstep with the server-side session.
+    resp.set_cookie(
+        config.COOKIE_NAME,
+        token,
+        max_age=config.SESSION_TTL_HOURS * 3600,
+        httponly=True,
+        samesite="Lax",
+    )
+    return resp
+
+
 def require_web_auth(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
@@ -55,7 +72,8 @@ def require_web_auth(fn):
         g.token = token
         g.session_string = crypto.decrypt(session_row["encrypted_session"])
         g.csrf_token = _csrf_token(token)
-        return fn(*args, **kwargs)
+        resp = make_response(fn(*args, **kwargs))
+        return _set_session_cookie(resp, token)
 
     return wrapper
 
@@ -125,8 +143,7 @@ def login_verify():
         token, telegram_user_id, pending["phone_number"], crypto.encrypt(new_session_string)
     )
     resp = redirect(url_for("web.chats"))
-    resp.set_cookie(config.COOKIE_NAME, token, httponly=True, samesite="Lax")
-    return resp
+    return _set_session_cookie(resp, token)
 
 
 @bp.route("/chats", methods=["GET"])
