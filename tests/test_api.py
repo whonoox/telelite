@@ -144,6 +144,45 @@ def test_chats_success_passes_through_can_reply(client, session_token):
     assert chats[1]["can_reply"] is False
 
 
+def test_list_dialogs_can_reply_self_owned_channel():
+    import pytest
+    from unittest.mock import AsyncMock, MagicMock
+    from telelite.telegram_client import _list_dialogs
+
+    class DummyEntity:
+        def __init__(self, title, broadcast=False, creator=False, admin_rights=None):
+            self.title = title
+            self.broadcast = broadcast
+            self.creator = creator
+            self.admin_rights = admin_rights
+
+    class DummyDialog:
+        def __init__(self, id, name, entity, unread_count=0):
+            self.id = id
+            self.name = name
+            self.entity = entity
+            self.unread_count = unread_count
+
+    d1 = DummyDialog(1, "Regular Chat", DummyEntity("Regular Chat", broadcast=False))
+    d2 = DummyDialog(2, "Other Channel", DummyEntity("Other Channel", broadcast=True, creator=False))
+    d3 = DummyDialog(3, "Self Channel", DummyEntity("Self Channel", broadcast=True, creator=True))
+    
+    admin_rights = MagicMock()
+    admin_rights.post_messages = True
+    d4 = DummyDialog(4, "Admin Channel", DummyEntity("Admin Channel", broadcast=True, creator=False, admin_rights=admin_rights))
+
+    mock_client = AsyncMock()
+    mock_client.get_dialogs.return_value = [d1, d2, d3, d4]
+
+    result = pytest.Stash() if False else None
+    import asyncio
+    res = asyncio.run(_list_dialogs(mock_client))
+    assert res[0]["can_reply"] is True
+    assert res[1]["can_reply"] is False
+    assert res[2]["can_reply"] is True
+    assert res[3]["can_reply"] is True
+
+
 # ---- messages ----
 
 
