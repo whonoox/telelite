@@ -214,7 +214,12 @@ async def _list_dialogs(client):
             # basic groups, and supergroups (megagroups) do. Only real
             # (non-megagroup) Channel entities carry `.broadcast`, so this
             # defaults to True (repliable) for every other dialog type.
-            "can_reply": not getattr(d.entity, "broadcast", False),
+            # Creators/owners and admins with posting rights can post on broadcast channels.
+            "can_reply": (
+                not getattr(d.entity, "broadcast", False)
+                or getattr(d.entity, "creator", False)
+                or getattr(getattr(d.entity, "admin_rights", None), "post_messages", False)
+            ),
             # Lets clients skip requesting an avatar for chats that don't
             # have one, instead of a guaranteed-404 round trip per chat.
             "has_photo": _has_photo(d.entity),
