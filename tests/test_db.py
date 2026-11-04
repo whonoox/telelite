@@ -81,5 +81,5 @@ def test_purge_expired_removes_old_rows_only(app):
         )
     db.purge_expired()
     with db._connect() as conn:  # noqa: SLF001
-        remaining = {r["token"] for r in conn.execute("SELECT token FROM sessions").fetchall()}
+        remaining = {r[0] for r in conn.execute("SELECT token FROM sessions").fetchall()}
     assert remaining == {"tok_fresh"}

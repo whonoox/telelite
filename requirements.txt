@@ -6,3 +6,4 @@ requests==2.32.3
 flask-cors==4.0.1
 pillow==12.3.0
 gunicorn==22.0.0
+libsql==0.1.11

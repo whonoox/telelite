@@ -18,6 +18,11 @@ MASTER_KEY = _require("MASTER_KEY").encode()
 FLASK_SECRET_KEY = _require("FLASK_SECRET_KEY")
 SESSION_TTL_HOURS = int(os.environ.get("SESSION_TTL_HOURS", "24"))
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "data/telelite.db")
+# When set, sessions live in a hosted Turso (libSQL) database instead of the
+# local SQLite file above. Needed on hosts with no persistent disk (e.g.
+# Vercel), where a local file would vanish whenever an instance scales down.
+TURSO_DATABASE_URL = os.environ.get("TURSO_DATABASE_URL")
+TURSO_AUTH_TOKEN = os.environ.get("TURSO_AUTH_TOKEN", "")
 PENDING_LOGIN_TTL_MINUTES = int(os.environ.get("PENDING_LOGIN_TTL_MINUTES", "10"))
 COOKIE_NAME = "telelite_token"
 

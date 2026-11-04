@@ -46,6 +46,22 @@ For a real deployment:
 - Bind the app itself to `127.0.0.1` (loopback) and let the reverse proxy be
   the only thing exposed publicly.
 
+### Hosts without a persistent disk (Vercel)
+
+The repo's `Dockerfile` deploys to Vercel as-is, but Vercel containers lose
+their filesystem whenever an instance scales down, and each instance has its
+own. A local SQLite file there means random "login expired" errors and users
+getting logged out. Instead:
+
+- Create a Turso database (`turso db create telelite`) and set
+  `TURSO_DATABASE_URL` (`turso db show --url telelite`) and
+  `TURSO_AUTH_TOKEN` (`turso db tokens create telelite`). Tables are created
+  automatically on startup.
+- Set `AVATAR_CACHE_PATH=/tmp/avatar_cache`. Only `/tmp` is writable, and the
+  cache is safe to lose.
+- `data/downloads` isn't in git, so the J2ME download page will be empty
+  unless you serve those files from somewhere else.
+
 ## 3. Pointing each client at your own server
 
 Every client defaults to `http://127.0.0.1:5000` for local development. To
