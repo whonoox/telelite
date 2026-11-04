@@ -24,6 +24,10 @@ Fill in `.env`:
   losing it makes all existing logged-in sessions permanently undecryptable
   (users would just need to log in again — no data loss beyond that).
 - `FLASK_SECRET_KEY` — signs the browser client's session cookie.
+- `TELEGRAM_ALLOWED_USER_IDS` — comma-separated Telegram user IDs allowed to
+  log in. Leave it empty and anyone with a Telegram account can sign in to
+  your server; if it's just for you, set it to your own ID (ask
+  @userinfobot on Telegram).
 
 Then:
 ```

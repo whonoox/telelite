@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 
 from . import config
+from .utils import is_allowed_user
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS sessions (
@@ -120,12 +121,12 @@ def create_session(token, telegram_user_id, phone_number, encrypted_session):
 
 def get_session(token):
     """Returns the session row and slides its expiry forward, or None if
-    missing/expired (expired rows are deleted)."""
+    missing/expired/no longer allowed (such rows are deleted)."""
     with _connect() as conn:
         row = _fetchone(conn, "SELECT * FROM sessions WHERE token = ?", (token,))
         if row is None:
             return None
-        if _now() > _parse(row["expires_at"]):
+        if _now() > _parse(row["expires_at"]) or not is_allowed_user(row["telegram_user_id"]):
             conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
             return None
         now = _now()

@@ -71,6 +71,7 @@ def require_web_auth(fn):
         if session_row is None:
             return redirect(url_for("web.login_phone", expired="1" if token else None))
         g.token = token
+        g.telegram_user_id = session_row["telegram_user_id"]
         g.session_string = crypto.decrypt(session_row["encrypted_session"])
         g.csrf_token = _csrf_token(token)
         resp = make_response(fn(*args, **kwargs))
@@ -168,7 +169,9 @@ def avatar(chat_id):
     if parsed_chat_id is None:
         abort(404)
     try:
-        thumbnail = get_avatar_thumbnail(g.session_string, parsed_chat_id, fmt="jpeg")
+        thumbnail = get_avatar_thumbnail(
+            g.session_string, g.telegram_user_id, parsed_chat_id, fmt="jpeg"
+        )
     except TeleliteError:
         # Avatars are decorative -- a flaky/rate-limited fetch shouldn't
         # break the page, just fall back to no image for this chat.

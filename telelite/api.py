@@ -43,6 +43,7 @@ def require_auth(fn):
         if session_row is None:
             return jsonify(error="session_expired"), 401
         g.token = token
+        g.telegram_user_id = session_row["telegram_user_id"]
         g.session_string = crypto.decrypt(session_row["encrypted_session"])
         return fn(*args, **kwargs)
 
@@ -129,7 +130,9 @@ def get_chat_avatar(chat_id):
         return jsonify(error="invalid_request", message="chat_id must be an integer"), 400
     fmt = "png" if request.args.get("fmt") == "png" else "jpeg"
     try:
-        thumbnail = get_avatar_thumbnail(g.session_string, parsed_chat_id, fmt=fmt)
+        thumbnail = get_avatar_thumbnail(
+            g.session_string, g.telegram_user_id, parsed_chat_id, fmt=fmt
+        )
     except TeleliteError as e:
         return _error_response(e)
     if thumbnail is None:
@@ -168,7 +171,9 @@ def get_chat_avatars_batch():
         ), 400
 
     try:
-        thumbnails = get_avatar_thumbnails(g.session_string, chat_ids, fmt=fmt)
+        thumbnails = get_avatar_thumbnails(
+            g.session_string, g.telegram_user_id, chat_ids, fmt=fmt
+        )
     except TeleliteError:
         # A total batch failure shouldn't break the chat list -- no icon
         # for anyone this round (same graceful-degradation spirit as the

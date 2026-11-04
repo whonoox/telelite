@@ -23,6 +23,12 @@ DATABASE_PATH = os.environ.get("DATABASE_PATH", "data/telelite.db")
 # Vercel), where a local file would vanish whenever an instance scales down.
 TURSO_DATABASE_URL = os.environ.get("TURSO_DATABASE_URL")
 TURSO_AUTH_TOKEN = os.environ.get("TURSO_AUTH_TOKEN", "")
+# Comma-separated Telegram user IDs allowed to log in. Empty means any
+# Telegram account can use this server -- set it on a public deployment
+# meant for yourself, so strangers can't sign in and share its caches.
+TELEGRAM_ALLOWED_USER_IDS = frozenset(
+    int(x) for x in os.environ.get("TELEGRAM_ALLOWED_USER_IDS", "").split(",") if x.strip()
+)
 PENDING_LOGIN_TTL_MINUTES = int(os.environ.get("PENDING_LOGIN_TTL_MINUTES", "10"))
 COOKIE_NAME = "telelite_token"
 

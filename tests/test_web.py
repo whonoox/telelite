@@ -65,7 +65,7 @@ def test_avatar_returns_jpeg_with_cache_headers(client, session_token):
     assert resp.mimetype == "image/jpeg"
     assert resp.data == b"fake-jpeg-bytes"
     assert "max-age" in resp.headers.get("Cache-Control", "")
-    mock_thumb.assert_called_once_with("fake-telethon-session-string", 123, fmt="jpeg")
+    mock_thumb.assert_called_once_with("fake-telethon-session-string", 999999, 123, fmt="jpeg")
 
 
 def test_avatar_falls_back_silently_on_telegram_error(client, session_token):

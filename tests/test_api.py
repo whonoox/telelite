@@ -263,7 +263,7 @@ def test_avatar_returns_jpeg_by_default(client, session_token):
     assert resp.status_code == 200
     assert resp.mimetype == "image/jpeg"
     assert resp.data == b"fake-jpeg-bytes"
-    mock_thumb.assert_called_once_with("fake-telethon-session-string", 123, fmt="jpeg")
+    mock_thumb.assert_called_once_with("fake-telethon-session-string", 999999, 123, fmt="jpeg")
 
 
 def test_avatar_supports_png_for_j2me(client, session_token):
@@ -273,7 +273,7 @@ def test_avatar_supports_png_for_j2me(client, session_token):
         resp = client.get("/chats/123/avatar?fmt=png", headers=auth_header(token))
     assert resp.status_code == 200
     assert resp.mimetype == "image/png"
-    mock_thumb.assert_called_once_with("fake-telethon-session-string", 123, fmt="png")
+    mock_thumb.assert_called_once_with("fake-telethon-session-string", 999999, 123, fmt="png")
 
 
 def test_avatar_flood_wait_returns_429(client, session_token):
@@ -320,7 +320,7 @@ def test_avatar_batch_frames_mixed_results(client, session_token):
     assert resp.mimetype == "application/octet-stream"
     # flag byte 0 (no photo), flag byte 1 + 4-byte length (3) + b"abc", flag byte 0
     assert resp.data == b"\x00" + b"\x01" + b"\x00\x00\x00\x03" + b"abc" + b"\x00"
-    mock_thumb.assert_called_once_with("fake-telethon-session-string", [1, 2, 3], fmt="jpeg")
+    mock_thumb.assert_called_once_with("fake-telethon-session-string", 999999, [1, 2, 3], fmt="jpeg")
 
 
 def test_avatar_batch_stops_early_on_flood_wait(client, session_token):
@@ -333,7 +333,7 @@ def test_avatar_batch_stops_early_on_flood_wait(client, session_token):
         resp = client.get("/chats/avatars?ids=1,2,3", headers=auth_header(token))
     assert resp.status_code == 200
     assert resp.data == b"\x00\x00\x00"  # all three marked as no-photo
-    mock_thumb.assert_called_once_with("fake-telethon-session-string", [1, 2, 3], fmt="jpeg")
+    mock_thumb.assert_called_once_with("fake-telethon-session-string", 999999, [1, 2, 3], fmt="jpeg")
 
 
 def test_avatar_batch_default_and_png_format(client, session_token):
@@ -341,10 +341,10 @@ def test_avatar_batch_default_and_png_format(client, session_token):
     with patch("telelite.api.get_avatar_thumbnails") as mock_thumb:
         mock_thumb.return_value = {1: b"x"}
         client.get("/chats/avatars?ids=1", headers=auth_header(token))
-        mock_thumb.assert_called_with("fake-telethon-session-string", [1], fmt="jpeg")
+        mock_thumb.assert_called_with("fake-telethon-session-string", 999999, [1], fmt="jpeg")
 
         client.get("/chats/avatars?ids=1&fmt=png", headers=auth_header(token))
-        mock_thumb.assert_called_with("fake-telethon-session-string", [1], fmt="png")
+        mock_thumb.assert_called_with("fake-telethon-session-string", 999999, [1], fmt="png")
 
 
 # ---- logout ----
