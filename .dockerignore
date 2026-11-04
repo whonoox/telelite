@@ -11,3 +11,4 @@ __pycache__/
 *.session-journal
 .cli_test_token
 j2me-app/target/
+.env.local
