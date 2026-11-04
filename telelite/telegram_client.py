@@ -11,6 +11,7 @@ from telethon.errors import (
 from telethon.sessions import StringSession
 
 from . import config
+from .utils import is_allowed_user
 
 
 class TeleliteError(Exception):
@@ -83,6 +84,17 @@ async def _verify_code(session_string, phone_number, phone_code_hash, code, pass
                 raise
             await client.sign_in(password=password)
         me = await client.get_me()
+        if not is_allowed_user(me.id):
+            # Revoke the authorization we just created so a rejected login
+            # doesn't leave a live session on that account.
+            try:
+                await client.log_out()
+            except Exception:
+                pass
+            raise TeleliteError(
+                "This Telegram account isn't allowed on this TeleLite server.",
+                code="account_not_allowed",
+            )
         return client.session.save(), me.id
     finally:
         await client.disconnect()

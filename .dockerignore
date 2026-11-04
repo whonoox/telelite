@@ -1,0 +1,14 @@
+.env
+data/
+.venv/
+venv/
+.git/
+.claude/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.session
+*.session-journal
+.cli_test_token
+j2me-app/target/
+.env.local
