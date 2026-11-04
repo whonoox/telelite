@@ -358,3 +358,10 @@ def test_logout_deletes_session_and_clears_cookie(client, session_token):
     assert resp.get_json()["ok"] is True
     assert db.get_session(token) is None
     mock_log_out.assert_called_once()
+
+
+def test_cors_open_for_api_but_not_web(client):
+    origin = {"Origin": "https://evil.example"}
+    assert "Access-Control-Allow-Origin" in client.get("/chats", headers=origin).headers
+    assert "Access-Control-Allow-Credentials" not in client.get("/chats", headers=origin).headers
+    assert "Access-Control-Allow-Origin" not in client.get("/web/login", headers=origin).headers

@@ -87,3 +87,22 @@ def _extract_pending_id(resp):
     start = body.index(marker) + len(marker)
     end = body.index('"', start)
     return body[start:end]
+
+
+def _login_and_get_cookie(client, headers=None):
+    with patch("telelite.web.send_code", return_value=("s", "hash")):
+        resp = client.post("/web/login", data={"phone_number": "+1000"})
+    pending_id = resp.get_data(as_text=True).split('name="pending_id" value="')[1].split('"')[0]
+    with patch("telelite.web.verify_code", return_value=("new-session", 999999)):
+        resp = client.post(
+            "/web/login/verify", data={"pending_id": pending_id, "code": "1"}, headers=headers
+        )
+    return resp.headers["Set-Cookie"]
+
+
+def test_cookie_is_secure_behind_https_proxy(client):
+    assert "Secure" in _login_and_get_cookie(client, {"X-Forwarded-Proto": "https"})
+
+
+def test_cookie_still_works_over_plain_http(client):
+    assert "Secure" not in _login_and_get_cookie(client)

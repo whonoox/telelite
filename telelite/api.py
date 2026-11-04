@@ -15,7 +15,7 @@ from .telegram_client import (
     send_message,
     verify_code,
 )
-from .utils import parse_chat_id
+from .utils import cookie_is_secure, parse_chat_id
 
 bp = Blueprint("api", __name__)
 
@@ -108,7 +108,9 @@ def login_verify():
         token, telegram_user_id, pending["phone_number"], crypto.encrypt(new_session_string)
     )
     resp = jsonify(token=token)
-    resp.set_cookie(COOKIE_NAME, token, httponly=True, samesite="Lax")
+    resp.set_cookie(
+        COOKIE_NAME, token, httponly=True, samesite="Lax", secure=cookie_is_secure()
+    )
     return resp
 
 
@@ -230,5 +232,5 @@ def logout():
     log_out(g.session_string)
     db.delete_session(g.token)
     resp = jsonify(ok=True)
-    resp.delete_cookie(COOKIE_NAME)
+    resp.delete_cookie(COOKIE_NAME, secure=cookie_is_secure())
     return resp

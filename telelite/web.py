@@ -16,7 +16,7 @@ from .telegram_client import (
     send_message,
     verify_code,
 )
-from .utils import parse_chat_id
+from .utils import cookie_is_secure, parse_chat_id
 
 bp = Blueprint("web", __name__, url_prefix="/web")
 
@@ -59,6 +59,7 @@ def _set_session_cookie(resp, token):
         max_age=config.SESSION_TTL_HOURS * 3600,
         httponly=True,
         samesite="Lax",
+        secure=cookie_is_secure(),
     )
     return resp
 
@@ -276,5 +277,5 @@ def logout():
         log_out(g.session_string)
         db.delete_session(g.token)
     resp = redirect(url_for("web.login_phone"))
-    resp.delete_cookie(config.COOKIE_NAME)
+    resp.delete_cookie(config.COOKIE_NAME, secure=cookie_is_secure())
     return resp
