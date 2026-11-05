@@ -3,83 +3,62 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <title>Fold test - TeleLite</title>
-{# Temporary: which markup makes Opera Mini's "fold linklists" label a
-   folded group? Deliberately no handheld stylesheet, so Opera's mobile view
-   folds this page. Each case is a run of short links between plain text. #}
+{# Temporary: probing Opera Mini's "fold linklists". Known so far: a run
+   of 10+ links folds, the group is labelled with its first link's text, and
+   a link that wraps onto two lines ends the run. This round: what splits
+   two runs that sit back to back, and a mock of the real folder layout. #}
 <style type="text/css" media="screen">
 body{margin:0;padding:4px;font-family:sans-serif}
 .case{background:#eef3f8;color:#517da2;font-weight:bold;padding:4px;margin-top:8px}
 a{display:block;padding:3px 0}
 img{vertical-align:middle;margin-right:4px}
+.gap{padding:3px 0}
+.sec-h{background:#eef3f8;color:#517da2;font-weight:bold;padding:4px;text-decoration:none}
+.chat{border-bottom:1px solid #c9d4de;color:#222;text-decoration:none}
+.badge{background:#4fae4e;color:#fff;font-size:small;font-weight:bold;padding:0 5px}
 </style>
 </head>
 <body>
 {% macro links(tag, count=none) %}{% for i in range(1, (count or n) + 1) %}<a href="?{{ tag }}={{ i }}">{{ tag }} chat {{ i }}</a>
 {% endfor %}{% endmacro %}
-<p>Note the label Opera shows on each folded group. {{ n }} links per case; change ?n= to try other sizes.</p>
+{% macro folder(title, unread, count) %}<a class="sec-h" href="?folder={{ title }}">{{ title }}{% if unread %} ({{ unread }}){% endif %}</a>
+{% for i in range(1, count + 1) %}<a class="chat" href="?{{ title }}={{ i }}"><img src="{{ url_for('web.avatar_placeholder', color=i % 7, letter=title[0]) }}" width="24" height="24" alt="">{{ title }} chat {{ i }}{% if i % 3 == 0 %} <span class="badge">{{ i }}</span>{% endif %}</a>
+{% endfor %}<a href="?more={{ title }}">More in {{ title }} &raquo;</a>
+{% endmacro %}
+<p>For each case: does it show as one folded group or two, and what are their labels? {{ n }} links per run.</p>
 
-<p class="case">Case A (plain)</p>
-{{ links("A") }}
+<p class="case">Case S1 (hr between)</p>
+{{ links("S1a") }}<hr>
+{{ links("S1b") }}
 
-<p class="case">Case B (div title)</p>
-<div title="B-div-title">
-{{ links("B") }}
-</div>
+<p class="case">Case S2 (br between)</p>
+{{ links("S2a") }}<br>
+{{ links("S2b") }}
 
-<p class="case">Case C (ul title)</p>
-<ul title="C-ul-title">
-{% for i in range(1, n + 1) %}<li><a href="?C={{ i }}">C chat {{ i }}</a></li>
-{% endfor %}
-</ul>
+<p class="case">Case S3 (separate divs, nothing between)</p>
+<div>{{ links("S3a") }}</div>
+<div>{{ links("S3b") }}</div>
 
-<p class="case">Case D (map title)</p>
-<map name="D-map-name" title="D-map-title">
-{{ links("D") }}
-</map>
+<p class="case">Case S4 (empty spacer div)</p>
+{{ links("S4a") }}<div class="gap"></div>
+{{ links("S4b") }}
 
-<p class="case">Case E (fieldset legend)</p>
-<fieldset><legend>E-legend</legend>
-{{ links("E") }}
-</fieldset>
+<p class="case">Case S5 (nbsp div)</p>
+{{ links("S5a") }}<div>&nbsp;</div>
+{{ links("S5b") }}
 
-<p class="case">Case F (link titles)</p>
-{% for i in range(1, n + 1) %}<a href="?F={{ i }}" title="F-link-title">F chat {{ i }}</a>
-{% endfor %}
+<p class="case">Case S6 (a dot)</p>
+{{ links("S6a") }}<div>&middot;</div>
+{{ links("S6b") }}
 
-<p class="case">Case G (dl dt)</p>
-<dl><dt>G-dt</dt><dd>
-{{ links("G") }}
-</dd></dl>
-
-<p class="case">Case H (table caption)</p>
-<table summary="H-summary"><caption>H-caption</caption>
-{% for i in range(1, n + 1) %}<tr><td><a href="?H={{ i }}">H chat {{ i }}</a></td></tr>
-{% endfor %}
-</table>
-
-<p class="case">Case J (h2 right before)</p>
-<h2>J-h2</h2>
-{{ links("J") }}
-
-<p class="case">Case K (with avatar images)</p>
-{% for i in range(1, n + 1) %}<a href="?K={{ i }}"><img src="{{ url_for('web.avatar_placeholder', color=i % 7, letter='K') }}" width="24" height="24" alt="">K chat {{ i }}</a>
+<p class="case">Case U (first link starts with an image that has alt text)</p>
+{% for i in range(1, n + 1) %}<a href="?U={{ i }}"><img src="{{ url_for('web.avatar_placeholder', color=i % 7, letter='U') }}" width="24" height="24" alt="U-alt">U chat {{ i }}</a>
 {% endfor %}
 
-<p class="case">Case L (one long name in the middle)</p>
-{{ links("L") }}<a href="?L=long">L chat with a really long name that has to wrap onto two lines</a>
-{{ links("M") }}
-
-<p class="case">Case N (9 links)</p>
-{{ links("N", 9) }}
-
-<p class="case">Case P (10 links)</p>
-{{ links("P", 10) }}
-
-<p class="case">Case Q (11 links)</p>
-{{ links("Q", 11) }}
-
-<p class="case">Case R (20 links)</p>
-{{ links("R", 20) }}
+<p class="case">Case T (real layout: three folders back to back)</p>
+{{ folder("Unread", 36, 12) }}
+{{ folder("Channels", 4, 12) }}
+{{ folder("Nerds", 0, 12) }}
 
 <p>End of test.</p>
 </body>
