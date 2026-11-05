@@ -221,6 +221,17 @@ def _dialog_summary(d):
     # fetches to render the chat list): no client renders a last-message
     # preview or its timestamp today, so they're left out entirely rather
     # than shipped as dead weight over a slow connection.
+    if getattr(d.entity, "is_self", False):
+        # Telegram shows the chat with yourself as "Saved Messages" with a
+        # bookmark icon, not under your own name and profile photo.
+        return {
+            "chat_id": d.id,
+            "name": "Saved Messages",
+            "unread_count": d.unread_count,
+            "can_reply": True,
+            "has_photo": False,
+            "is_self": True,
+        }
     return {
         "chat_id": d.id,
         "name": d.name or getattr(d.entity, "title", None) or str(d.id),

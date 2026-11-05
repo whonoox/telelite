@@ -1,8 +1,9 @@
 import io
 import os
 import time
+from functools import lru_cache
 
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 from . import config
 from .telegram_client import download_avatar, download_avatars
@@ -134,3 +135,54 @@ def get_avatar_thumbnails(session_string, user_id, chat_ids, fmt="jpeg"):
                 _write_thumbnail(user_id, chat_id, fmt, thumbnail)
                 result[chat_id] = thumbnail
     return result
+
+
+# ---- placeholders for chats without a photo ----
+#
+# Served as images rather than CSS boxes: Opera Mini 4.4 ignores width/height
+# on inline boxes (a colored initial shrinks to the size of the letter), but
+# sizes <img> correctly. Telegram's own peer colors, picked by chat id.
+PLACEHOLDER_COLORS = ["#e17076", "#faa774", "#a695e7", "#7bc862", "#6ec9cb", "#65aadd", "#ee7aae"]
+SAVED_MESSAGES_COLOR = "#65aadd"
+
+
+def placeholder_color(chat_id):
+    return chat_id % len(PLACEHOLDER_COLORS)
+
+
+def placeholder_letter(name):
+    """First Latin letter or digit of the name, uppercased, or "" if there is
+    none. Pillow's built-in font only covers Latin, so e.g. an Amharic or
+    Cyrillic initial would render as a box; "ኦቶ Codes" gets "C" instead,
+    and a name with no Latin character at all gets a plain colored square."""
+    for ch in name or "":
+        if ch.isascii() and ch.isalnum():
+            return ch.upper()
+    return ""
+
+
+def _png(img):
+    out = io.BytesIO()
+    img.save(out, format="PNG", optimize=True)
+    return out.getvalue()
+
+
+@lru_cache(maxsize=None)
+def placeholder_png(color_index, letter):
+    img = Image.new("RGB", (THUMBNAIL_SIZE_PX, THUMBNAIL_SIZE_PX), PLACEHOLDER_COLORS[color_index])
+    if letter:
+        font = ImageFont.load_default(size=26)
+        center = THUMBNAIL_SIZE_PX / 2
+        ImageDraw.Draw(img).text(
+            (center, center), letter, fill="white", font=font, anchor="mm",
+            stroke_width=1, stroke_fill="white",  # the built-in font has no bold
+        )
+    return _png(img)
+
+
+@lru_cache(maxsize=None)
+def saved_messages_png():
+    """Telegram's Saved Messages icon: a white bookmark on blue."""
+    img = Image.new("RGB", (THUMBNAIL_SIZE_PX, THUMBNAIL_SIZE_PX), SAVED_MESSAGES_COLOR)
+    ImageDraw.Draw(img).polygon([(16, 12), (32, 12), (32, 36), (24, 29), (16, 36)], fill="white")
+    return _png(img)

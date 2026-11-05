@@ -164,3 +164,34 @@ def test_reply_redirect_keeps_folder(client, session_token):
         )
     assert resp.status_code == 303
     assert "folder=3" in resp.headers["Location"]
+
+
+# ---- placeholders / Saved Messages ----
+
+def test_chats_page_uses_placeholder_and_saved_messages_icons(client, session_token):
+    token, _ = session_token
+    client.set_cookie("telelite_token", token)
+    view = {"folders": [], "folder": None, "chats": [
+        {"chat_id": 99, "name": "Saved Messages", "unread_count": 0, "can_reply": True,
+         "has_photo": False, "is_self": True},
+        {"chat_id": 10, "name": "abebe", "unread_count": 0, "can_reply": True, "has_photo": False},
+        {"chat_id": 11, "name": "Концепты", "unread_count": 0, "can_reply": True, "has_photo": False},
+        {"chat_id": 12, "name": "Photo", "unread_count": 0, "can_reply": True, "has_photo": True},
+    ]}
+    with patch("telelite.web.load_chat_list", return_value=view):
+        html = client.get("/web/chats").get_data(as_text=True)
+    assert 'src="/web/icons/saved.png"' in html
+    assert 'src="/web/icons/3/A.png"' in html  # 10 % 7 == 3
+    assert 'src="/web/icons/4/_.png"' in html  # no Latin letter
+    assert 'src="/web/chats/12/avatar"' in html
+
+
+def test_placeholder_icons_need_no_login_and_validate_input(client):
+    resp = client.get("/web/icons/3/A.png")
+    assert resp.status_code == 200 and resp.mimetype == "image/png"
+    assert "public" in resp.headers["Cache-Control"]
+    assert client.get("/web/icons/0/_.png").status_code == 200
+    assert client.get("/web/icons/saved.png").status_code == 200
+    assert client.get("/web/icons/7/A.png").status_code == 404
+    assert client.get("/web/icons/3/AB.png").status_code == 404
+    assert client.get("/web/icons/3/%D0%9A.png").status_code == 404  # Cyrillic
