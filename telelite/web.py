@@ -28,6 +28,10 @@ from .utils import cookie_is_secure, parse_chat_id
 bp = Blueprint("web", __name__, url_prefix="/web")
 
 MESSAGES_PER_PAGE = 20
+# Chats per section on the all-folders overview. Every row has an avatar
+# image that Opera's servers fetch up front, so the page stays light; the
+# rest are one "More" link away.
+OVERVIEW_SECTION_LIMIT = 15
 
 
 def _csrf_token(session_token):
@@ -159,20 +163,28 @@ def login_verify():
 @bp.route("/chats", methods=["GET"])
 @require_web_auth
 def chats():
+    """Without ?folder: one page with "All chats" and every Telegram folder
+    as a titled section of its first few chats. Opera Mini folds each run of
+    links into a collapsible group, so sections open in place without a page
+    load. With ?folder=<id>: that section's full list."""
     try:
-        view = load_chat_list(g.session_string, _folder_id())
+        sections = load_chat_list(g.session_string)
         error = None
     except TeleliteError as e:
-        view = {"folders": [], "folder": None, "chats": []}
+        sections = []
         error = _error_message(e)
+    for section in sections:
+        section["chats"] = [
+            dict(c, placeholder=None if c["has_photo"] else _placeholder_url(c))
+            for c in section["chats"]
+        ]
+    folder_id = _folder_id()
+    current = next((s for s in sections if s["id"] == folder_id), None)
     return render_template(
         "chats.html",
-        chats=[
-            dict(c, placeholder=None if c["has_photo"] else _placeholder_url(c))
-            for c in view["chats"]
-        ],
-        folders=view["folders"],
-        folder=view["folder"],
+        sections=sections,
+        current=current,
+        section_limit=OVERVIEW_SECTION_LIMIT,
         error=error,
         csrf_token=g.csrf_token,
     )

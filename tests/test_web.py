@@ -110,36 +110,52 @@ def test_cookie_still_works_over_plain_http(client):
 
 # ---- folders ----
 
-FOLDER_VIEW = {
-    "folders": [{"id": 2, "title": "Channels", "unread": 14}, {"id": 3, "title": "Job", "unread": 0}],
-    "folder": {"id": 2, "title": "Channels"},
-    "chats": [
-        {"chat_id": -100123, "name": "News <b>", "unread_count": 3, "can_reply": False, "has_photo": False},
-    ],
-}
+def _chat(chat_id, name, unread=0, **extra):
+    return dict(chat_id=chat_id, name=name, unread_count=unread, can_reply=True, has_photo=False, **extra)
 
 
-def test_chats_page_shows_folder_tabs_and_keeps_folder_in_links(client, session_token):
+SECTIONS = [
+    {"id": 0, "title": "All chats", "unread": 1, "total": 20,
+     "chats": [_chat(i, f"Chat {i}", unread=(3 if i == 1 else 0)) for i in range(1, 21)]},
+    {"id": 2, "title": "Channels", "unread": 1, "total": 1, "chats": [_chat(-100123, "News <b>", unread=3)]},
+    {"id": 3, "title": "Job", "unread": 0, "total": 0, "chats": []},
+]
+
+
+def test_overview_shows_every_folder_as_a_titled_section(client, session_token):
     token, session_string = session_token
     client.set_cookie("telelite_token", token)
-    with patch("telelite.web.load_chat_list", return_value=FOLDER_VIEW) as mock_load:
-        resp = client.get("/web/chats?folder=2")
-    mock_load.assert_called_once_with(session_string, 2)
-    html = resp.get_data(as_text=True)
-    assert 'href="/web/chats?folder=3">Job</a>' in html
-    assert 'class="tab on" href="/web/chats?folder=2">Channels <span class="n">14</span>' in html
-    assert "folder=2" in html.split('class="chat unread"')[1].split(">")[0]
-    assert "News &lt;b&gt;" in html  # still escaped
-
-
-def test_chats_page_without_folder_loads_all_chats(client, session_token):
-    token, session_string = session_token
-    client.set_cookie("telelite_token", token)
-    view = dict(FOLDER_VIEW, folder=None)
-    with patch("telelite.web.load_chat_list", return_value=view) as mock_load:
+    with patch("telelite.web.load_chat_list", return_value=SECTIONS) as mock_load:
         html = client.get("/web/chats").get_data(as_text=True)
-    mock_load.assert_called_once_with(session_string, None)
-    assert 'class="tab on" href="/web/chats">All</a>' in html
+    mock_load.assert_called_once_with(session_string)
+    assert '<div class="sec" title="Channels">' in html
+    assert '<h2 class="sec-h">Channels <span class="n">1</span></h2>' in html
+    assert '<h2 class="sec-h">Job</h2>' in html
+    assert "News &lt;b&gt;" in html  # still escaped
+    # Sections are capped; the rest is one link away.
+    assert html.count('class="chat') == 15 + 1
+    assert 'href="/web/chats?folder=0">More in All chats' in html
+    assert "More in Channels" not in html
+    # Chats opened from the overview come back to the overview.
+    assert "folder=" not in html.split('href="/web/chats/1?')[1].split('"')[0]
+
+
+def test_folder_page_lists_one_section_and_keeps_folder_in_links(client, session_token):
+    token, _ = session_token
+    client.set_cookie("telelite_token", token)
+    with patch("telelite.web.load_chat_list", return_value=SECTIONS):
+        html = client.get("/web/chats?folder=0").get_data(as_text=True)
+    assert html.count('class="chat') == 20
+    assert 'href="/web/chats">&laquo;</a> All chats' in html
+    assert "folder=0" in html.split('href="/web/chats/1?')[1].split('"')[0]
+
+
+def test_unknown_folder_falls_back_to_overview(client, session_token):
+    token, _ = session_token
+    client.set_cookie("telelite_token", token)
+    with patch("telelite.web.load_chat_list", return_value=SECTIONS):
+        html = client.get("/web/chats?folder=404").get_data(as_text=True)
+    assert '<div class="sec" title="All chats">' in html
 
 
 def test_conversation_back_link_returns_to_folder(client, session_token):
@@ -171,13 +187,13 @@ def test_reply_redirect_keeps_folder(client, session_token):
 def test_chats_page_uses_placeholder_and_saved_messages_icons(client, session_token):
     token, _ = session_token
     client.set_cookie("telelite_token", token)
-    view = {"folders": [], "folder": None, "chats": [
+    view = [{"id": 0, "title": "All chats", "unread": 0, "total": 4, "chats": [
         {"chat_id": 99, "name": "Saved Messages", "unread_count": 0, "can_reply": True,
          "has_photo": False, "is_self": True},
         {"chat_id": 10, "name": "abebe", "unread_count": 0, "can_reply": True, "has_photo": False},
         {"chat_id": 11, "name": "Концепты", "unread_count": 0, "can_reply": True, "has_photo": False},
         {"chat_id": 12, "name": "Photo", "unread_count": 0, "can_reply": True, "has_photo": True},
-    ]}
+    ]}]
     with patch("telelite.web.load_chat_list", return_value=view):
         html = client.get("/web/chats").get_data(as_text=True)
     assert 'src="/web/icons/saved.png"' in html

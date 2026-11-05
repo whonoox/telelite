@@ -48,6 +48,3 @@ def chats_in_folder(folder, chats):
     )
     return pinned + rest
 
-
-def unread_chat_count(folder, chats):
-    return sum(1 for c in chats if c["unread"] and in_folder(folder, c))
