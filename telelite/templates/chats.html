@@ -1,30 +1,44 @@
 {% extends "base.html" %}
-{% macro chat_row(chat, folder_id) -%}
-<a class="chat{% if chat.unread_count %} unread{% endif %}" href="{{ url_for('web.conversation', chat_id=chat.chat_id, name=chat.name, can_reply=(1 if chat.can_reply else 0), folder=folder_id) }}"><img src="{{ chat.placeholder or url_for('web.avatar', chat_id=chat.chat_id) }}" width="24" height="24" alt=""><span class="name">{{ chat.name }}</span>{% if chat.unread_count %} <span class="badge">{{ chat.unread_count }}</span>{% endif %}</a>
+{% macro chat_row(chat, folder_id, name) -%}
+<a class="chat{% if chat.unread_count %} unread{% endif %}" href="{{ url_for('web.conversation', chat_id=chat.chat_id, name=chat.name, can_reply=(1 if chat.can_reply else 0), folder=folder_id) }}"><img src="{{ chat.placeholder or url_for('web.avatar', chat_id=chat.chat_id) }}" width="24" height="24" alt=""><span class="name">{{ name }}</span>{% if chat.unread_count %} <span class="badge">{{ chat.unread_count }}</span>{% endif %}</a>
 {%- endmacro %}
-{% block title %}Chats - TeleLite{% endblock %}
+{% block title %}{{ current.title if current else "Chats" }} - TeleLite{% endblock %}
+{# The overview leaves out media="handheld" so Opera Mini folds each folder's
+   chats; a single folder's page keeps it and lists them flat. #}
+{% block style_media %}{{ "screen,handheld" if current else "screen" }}{% endblock %}
 {% block body %}
-<div class="bar">TeleLite</div>
+{% if current %}
+<div class="bar"><a class="back" href="{{ url_for('web.chats') }}">&laquo;</a> {{ current.title }}</div>
 {% if error %}<div class="err">{{ error }}</div>{% endif %}
-{# An accordion without JavaScript: every folder heading is a link that
-   reloads the page with that folder open and scrolls to it (#s<id>); the
-   open folder's heading closes it again. #}
-{% for section in sections %}
-{% set is_open = current and section.id == current.id %}
-<a class="sec-h{% if is_open %} open{% endif %}" name="s{{ section.id }}" href="{{ url_for('web.chats', folder=(no_folder_open if is_open else section.id), _anchor='s%d' % section.id) }}"><span class="tog">{{ '-' if is_open else '+' }}</span> {{ section.title }}{% if section.unread %} <span class="n">{{ section.unread }}</span>{% endif %}</a>
-{% if is_open %}
-{% for chat in section.chats %}
-{{ chat_row(chat, section.id) }}
+{% for chat in current.chats %}
+{{ chat_row(chat, current.id, chat.name) }}
 {% else %}
 <div class="empty">No chats here.</div>
 {% endfor %}
-{% if section.total > section.chats|length %}<div class="hint pad">Showing the {{ section.chats|length }} most recent.</div>{% endif %}
-{% endif %}
+{% if current.total > current.chats|length %}<div class="hint pad">Showing the {{ current.chats|length }} most recent.</div>{% endif %}
+{% else %}
+<div class="bar">TeleLite</div>
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+{# What Opera Mini folds, from testing on the phone: a run of 10+ links
+   becomes one group, a link that wraps onto two lines ends the run (hence
+   the shortened names), and only an <hr> splits two runs that would
+   otherwise touch. Groups of links with images are labelled "No title", so
+   each folder's name sits on the heading just above its group. #}
+{% for section in sections %}
+<div class="sec-h"><a name="s{{ section.id }}" href="{{ url_for('web.chats', folder=section.id) }}">{{ section.title }}</a>{% if section.unread %} <span class="n">{{ section.unread }}</span>{% endif %}</div>
+{% for chat in section.chats[:section_limit] %}
+{{ chat_row(chat, None, chat.name|short_name) }}
+{% else %}
+<div class="empty">No chats here.</div>
 {% endfor %}
+{% if section.total > section_limit %}<a class="sec-more" href="{{ url_for('web.chats', folder=section.id) }}">More in {{ section.title }} &raquo;</a>{% endif %}
+<hr class="sec-end">
+{% endfor %}
+{% endif %}
 <div class="foot">
 <form method="post" action="/web/logout">
 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-<a href="{{ url_for('web.chats', folder=(current.id if current else no_folder_open)) }}">Refresh</a> &middot;
+<a href="{{ url_for('web.chats', folder=(current.id if current else None)) }}">Refresh</a> &middot;
 <input class="link-btn" type="submit" value="Log out">
 </form>
 </div>
