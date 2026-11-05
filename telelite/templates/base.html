@@ -10,7 +10,9 @@
   to colors, borders, padding, floats and block/inline layout: no flexbox,
   gradients, shadows, transforms, web fonts, media queries or JavaScript.
   The few CSS3 extras (border-radius, word-wrap) are optional nice-to-haves
-  that browsers which ignore them render fine without.
+  that browsers which ignore them render fine without. Opera Mini 4.4 also
+  ignores float, so floated bits (like the unread badge) go after the
+  content they trail, where they still read right when shown inline.
 #}
 <style type="text/css">
 body{margin:0;padding:0;background:#fff;color:#222;font-family:sans-serif}
@@ -32,11 +34,11 @@ img{border:0}
 .tab.on{background:#517da2;color:#fff;font-weight:bold}
 .tab .n{color:#fff;background:#8aa6be;padding:0 4px;border-radius:7px}
 .tab.on .n{background:#7fa3c4}
-.chat{display:block;padding:6px 6px;border-bottom:1px solid #e8edf1;color:#222;text-decoration:none}
+.chat{display:block;padding:6px 6px;border-bottom:1px solid #c9d4de;color:#222;text-decoration:none}
 .chat img,.chat .ph{vertical-align:middle;margin-right:6px}
 .ph{display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;color:#fff;font-weight:bold;font-size:small}
 .c0{background:#e17076}.c1{background:#faa774}.c2{background:#a695e7}.c3{background:#7bc862}.c4{background:#6ec9cb}.c5{background:#65aadd}.c6{background:#ee7aae}
-.badge{float:right;background:#4fae4e;color:#fff;font-size:small;font-weight:bold;padding:1px 6px;margin-top:4px;border-radius:9px}
+.badge{float:right;background:#4fae4e;color:#fff;font-size:small;font-weight:bold;padding:1px 6px;margin:4px 0 0 4px;border-radius:9px}
 .unread .name{font-weight:bold}
 .empty{color:#6d7a86;padding:16px 8px;text-align:center}
 .thread{background:#e6ebee;padding:4px 0}

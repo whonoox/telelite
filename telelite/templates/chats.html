@@ -9,7 +9,7 @@
 {% endif %}
 {% if error %}<div class="err">{{ error }}</div>{% endif %}
 {% for chat in chats %}
-<a class="chat{% if chat.unread_count %} unread{% endif %}" href="{{ url_for('web.conversation', chat_id=chat.chat_id, name=chat.name, can_reply=(1 if chat.can_reply else 0), folder=(folder.id if folder else None)) }}">{% if chat.unread_count %}<span class="badge">{{ chat.unread_count }}</span>{% endif %}{% if chat.has_photo %}<img src="{{ url_for('web.avatar', chat_id=chat.chat_id) }}" width="24" height="24" alt="">{% else %}<span class="ph c{{ chat.chat_id % 7 }}">{{ chat.name[:1]|upper }}</span>{% endif %}<span class="name">{{ chat.name }}</span></a>
+<a class="chat{% if chat.unread_count %} unread{% endif %}" href="{{ url_for('web.conversation', chat_id=chat.chat_id, name=chat.name, can_reply=(1 if chat.can_reply else 0), folder=(folder.id if folder else None)) }}">{% if chat.has_photo %}<img src="{{ url_for('web.avatar', chat_id=chat.chat_id) }}" width="24" height="24" alt="">{% else %}<span class="ph c{{ chat.chat_id % 7 }}">{{ chat.name[:1]|upper }}</span>{% endif %}<span class="name">{{ chat.name }}</span>{% if chat.unread_count %} <span class="badge">{{ chat.unread_count }}</span>{% endif %}</a>
 {% else %}
 {% if not error %}<div class="empty">No chats here.</div>{% endif %}
 {% endfor %}
