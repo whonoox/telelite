@@ -23,7 +23,7 @@ from .telegram_client import (
     send_message,
     verify_code,
 )
-from .utils import cookie_is_secure, parse_chat_id
+from .utils import cookie_is_secure, parse_chat_id, phone_text
 
 bp = Blueprint("web", __name__, url_prefix="/web")
 
@@ -201,6 +201,7 @@ def _short_name(name):
 
 
 bp.add_app_template_filter(_short_name, "short_name")
+bp.add_app_template_filter(phone_text, "phone_text")
 
 
 @bp.route("/chats/<chat_id>/avatar", methods=["GET"])

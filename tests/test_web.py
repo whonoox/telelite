@@ -228,3 +228,40 @@ def test_placeholder_icons_need_no_login_and_validate_input(client):
     assert client.get("/web/icons/7/A.png").status_code == 404
     assert client.get("/web/icons/3/AB.png").status_code == 404
     assert client.get("/web/icons/3/%D0%9A.png").status_code == 404  # Cyrillic
+
+
+# ---- emoji (Opera Mini 4 blanks any text containing one) ----
+
+def test_phone_text_drops_emoji():
+    from telelite.utils import phone_text
+
+    assert phone_text("Dagmawi Babi \U0001F1EA\U0001F1F9") == "Dagmawi Babi"
+    assert phone_text("Luna's pathway \U0001F917") == "Luna's pathway"
+    assert phone_text("\U0001F4E2 News  ❤️ now") == "News ❤ now"
+    assert phone_text("a\U0001F468‍\U0001F4BBb") == "ab"
+    assert phone_text("\U0001F525\U0001F525") == "[emoji]"
+    assert phone_text("ሰላም") == "ሰላም"  # Ge'ez script stays
+    assert phone_text("") == ""
+
+
+def test_emoji_stripped_from_chat_list_but_kept_in_links(client, session_token):
+    token, _ = session_token
+    client.set_cookie("telelite_token", token)
+    view = [{"id": 5, "title": "Fun \U0001F389", "unread": 0, "total": 1,
+             "chats": [_chat(9, "Luna's pathway \U0001F917")]}]
+    with patch("telelite.web.load_chat_list", return_value=view):
+        html = client.get("/web/chats").get_data(as_text=True)
+    assert '<span class="name">Luna&#39;s pathway</span>' in html
+    assert ">Fun</a>" in html
+    assert "%F0%9F%A4%97" in html  # the conversation still gets the real name
+
+
+def test_emoji_stripped_from_conversation(client, session_token):
+    token, _ = session_token
+    client.set_cookie("telelite_token", token)
+    msgs = [{"id": 1, "out": False, "text": "hi \U0001F44B"}, {"id": 2, "out": True, "text": "\U0001F525"}]
+    with patch("telelite.web.get_messages", return_value=msgs):
+        html = client.get("/web/chats/5?name=Luna \U0001F917").get_data(as_text=True)
+    assert "&laquo;</a> Luna</div>" in html
+    assert '<div class="msg">hi</div>' in html
+    assert '<div class="msg out">[emoji]</div>' in html
