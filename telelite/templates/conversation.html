@@ -8,7 +8,7 @@
 <div class="more"><a href="{{ url_for('web.conversation', chat_id=chat_id, before_id=oldest_id, name=chat_name, can_reply=(1 if can_reply else 0), folder=folder_id) }}">Older messages</a></div>
 {% endif %}
 {% for m in messages %}
-<div class="msg{% if m.out %} out{% endif %}">{{ m.text|phone_text }}</div>
+<div class="msg{% if m.out %} out{% endif %}">{% if m.media == "photo" %}<img src="{{ url_for('web.message_photo', chat_id=chat_id, message_id=m.id) }}" alt="[photo]">{% if m.text %}<br>{% endif %}{% elif m.media %}<span class="media">[{{ m.media }}]</span>{% if m.text %} {% endif %}{% endif %}{{ m.text|phone_text }}</div>
 {% else %}
 {% if not error %}<div class="empty">No messages yet.</div>{% endif %}
 {% endfor %}
