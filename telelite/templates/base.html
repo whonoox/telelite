@@ -1,0 +1,56 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}TeleLite{% endblock %}</title>
+{#
+  Target: Opera Mini 4.4 on feature phones (~240px wide screens). It renders
+  pages on Opera's servers and only reliably supports CSS 2.1, so this sticks
+  to colors, borders, padding, floats and block/inline layout: no flexbox,
+  gradients, shadows, transforms, web fonts, media queries or JavaScript.
+  The few CSS3 extras (border-radius, word-wrap) are optional nice-to-haves
+  that browsers which ignore them render fine without.
+#}
+<style type="text/css">
+body{margin:0;padding:0;background:#fff;color:#222;font-family:sans-serif}
+a{color:#2a6496}
+img{border:0}
+.bar{background:#517da2;color:#fff;padding:7px 8px;font-weight:bold;border-bottom:1px solid #3f6a8f}
+.bar a{color:#fff;text-decoration:none}
+.bar .back{font-weight:normal;margin-right:6px}
+.sub{color:#d6e4f0;font-weight:normal;font-size:small}
+.pad{padding:8px}
+.err{background:#fdecea;color:#9b1c1c;border:1px solid #f1b0aa;padding:6px 8px;margin:8px}
+.hint{color:#6d7a86;font-size:small}
+.field{margin:0 0 10px 0}
+.field label{display:block;color:#517da2;font-weight:bold;font-size:small;margin-bottom:3px}
+.input{width:95%;padding:4px;border:1px solid #9fb6ca;background:#fff}
+.btn{background:#517da2;color:#fff;border:1px solid #3f6a8f;padding:5px 14px;font-weight:bold}
+.tabs{background:#eef3f8;border-bottom:1px solid #cfdbe6;padding:3px 2px;line-height:1.9em;font-size:small}
+.tab{padding:2px 5px;margin:0;color:#517da2;text-decoration:none;white-space:nowrap}
+.tab.on{background:#517da2;color:#fff;font-weight:bold}
+.tab .n{color:#fff;background:#8aa6be;padding:0 4px;border-radius:7px}
+.tab.on .n{background:#7fa3c4}
+.chat{display:block;padding:6px 6px;border-bottom:1px solid #e8edf1;color:#222;text-decoration:none}
+.chat img,.chat .ph{vertical-align:middle;margin-right:6px}
+.ph{display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;color:#fff;font-weight:bold;font-size:small}
+.c0{background:#e17076}.c1{background:#faa774}.c2{background:#a695e7}.c3{background:#7bc862}.c4{background:#6ec9cb}.c5{background:#65aadd}.c6{background:#ee7aae}
+.badge{float:right;background:#4fae4e;color:#fff;font-size:small;font-weight:bold;padding:1px 6px;margin-top:4px;border-radius:9px}
+.unread .name{font-weight:bold}
+.empty{color:#6d7a86;padding:16px 8px;text-align:center}
+.thread{background:#e6ebee;padding:4px 0}
+.more{text-align:center;padding:6px;font-size:small}
+.msg{margin:4px 22% 4px 6px;padding:5px 8px;background:#fff;border:1px solid #d5dee6;word-wrap:break-word}
+.out{margin:4px 6px 4px 22%;background:#effdde;border-color:#c5e3a8}
+.compose{background:#f4f6f8;border-top:1px solid #d5dee6;padding:6px 8px}
+.compose textarea{width:95%;border:1px solid #9fb6ca;padding:3px}
+.foot{padding:10px 8px;border-top:1px solid #e8edf1;font-size:small;color:#6d7a86}
+.foot form{margin:0}
+.link-btn{background:none;border:0;color:#2a6496;text-decoration:underline;padding:0;font-size:small}
+</style>
+</head>
+<body>
+{% block body %}{% endblock %}
+</body>
+</html>

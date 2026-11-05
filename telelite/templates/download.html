@@ -1,14 +1,18 @@
-<title>TeleLite Downloads</title>
-<h1>Download TeleLite</h1>
+{% extends "base.html" %}
+{% block title %}TeleLite Downloads{% endblock %}
+{% block body %}
+<div class="bar">Download TeleLite</div>
+<div class="pad">
 <p>A text-only Telegram client for feature phones.</p>
-
-<h2>Any phone with a browser</h2>
-<p><a href="{{ url_for('web.login_phone') }}">Use the browser version</a> - no install needed, works on basically any phone.</p>
-
-<h2>Java ME (J2ME) phones</h2>
+<p><b>Any phone with a browser</b><br>
+<a href="{{ url_for('web.login_phone') }}">Use the browser version</a> - no install needed, works on basically any phone.</p>
+<p><b>Java ME (J2ME) phones</b><br>
 {% if j2me_available %}
-<p><a href="{{ url_for('downloads.j2me_jad') }}">Install TeleLite</a></p>
-<p>Open this page in your phone's own browser and select the link above. Your phone should offer to install the app.</p>
+<a href="{{ url_for('downloads.j2me_jad') }}">Install TeleLite</a><br>
+<span class="hint">Open this page in your phone's own browser and select the link above. Your phone should offer to install the app.</span>
 {% else %}
-<p>Not published on this server yet.</p>
+Not published on this server yet.
 {% endif %}
+</p>
+</div>
+{% endblock %}

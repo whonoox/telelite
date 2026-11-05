@@ -106,3 +106,61 @@ def test_cookie_is_secure_behind_https_proxy(client):
 
 def test_cookie_still_works_over_plain_http(client):
     assert "Secure" not in _login_and_get_cookie(client)
+
+
+# ---- folders ----
+
+FOLDER_VIEW = {
+    "folders": [{"id": 2, "title": "Channels", "unread": 14}, {"id": 3, "title": "Job", "unread": 0}],
+    "folder": {"id": 2, "title": "Channels"},
+    "chats": [
+        {"chat_id": -100123, "name": "News <b>", "unread_count": 3, "can_reply": False, "has_photo": False},
+    ],
+}
+
+
+def test_chats_page_shows_folder_tabs_and_keeps_folder_in_links(client, session_token):
+    token, session_string = session_token
+    client.set_cookie("telelite_token", token)
+    with patch("telelite.web.load_chat_list", return_value=FOLDER_VIEW) as mock_load:
+        resp = client.get("/web/chats?folder=2")
+    mock_load.assert_called_once_with(session_string, 2)
+    html = resp.get_data(as_text=True)
+    assert 'href="/web/chats?folder=3">Job</a>' in html
+    assert 'class="tab on" href="/web/chats?folder=2">Channels <span class="n">14</span>' in html
+    assert "folder=2" in html.split('class="chat unread"')[1].split(">")[0]
+    assert "News &lt;b&gt;" in html  # still escaped
+
+
+def test_chats_page_without_folder_loads_all_chats(client, session_token):
+    token, session_string = session_token
+    client.set_cookie("telelite_token", token)
+    view = dict(FOLDER_VIEW, folder=None)
+    with patch("telelite.web.load_chat_list", return_value=view) as mock_load:
+        html = client.get("/web/chats").get_data(as_text=True)
+    mock_load.assert_called_once_with(session_string, None)
+    assert 'class="tab on" href="/web/chats">All</a>' in html
+
+
+def test_conversation_back_link_returns_to_folder(client, session_token):
+    token, _ = session_token
+    client.set_cookie("telelite_token", token)
+    with patch("telelite.web.get_messages", return_value=[{"id": 1, "out": True, "text": "yo"}]):
+        html = client.get("/web/chats/5?name=Abebe&folder=3").get_data(as_text=True)
+    assert 'href="/web/chats?folder=3">&laquo;</a>' in html
+    assert '<input type="hidden" name="folder" value="3">' in html
+    assert '<div class="msg out">yo</div>' in html
+
+
+def test_reply_redirect_keeps_folder(client, session_token):
+    token, _ = session_token
+    client.set_cookie("telelite_token", token)
+    page = client.get("/web/chats/5?name=Abebe&folder=3")
+    csrf = page.get_data(as_text=True).split('name="csrf_token" value="')[1].split('"')[0]
+    with patch("telelite.web.send_message"):
+        resp = client.post(
+            "/web/chats/5/reply",
+            data={"csrf_token": csrf, "text": "hi", "name": "Abebe", "can_reply": "1", "folder": "3"},
+        )
+    assert resp.status_code == 303
+    assert "folder=3" in resp.headers["Location"]
