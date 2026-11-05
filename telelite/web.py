@@ -15,7 +15,6 @@ from .avatars import (
     saved_messages_png,
 )
 from .telegram_client import (
-    ALL_CHATS_ID,
     TeleliteError,
     get_messages,
     load_chat_list,
@@ -29,9 +28,13 @@ from .utils import cookie_is_secure, parse_chat_id
 bp = Blueprint("web", __name__, url_prefix="/web")
 
 MESSAGES_PER_PAGE = 20
-# ?folder value for "every folder collapsed" (the open folder's heading
-# links here, so tapping it again closes it).
-NO_FOLDER_OPEN = -1
+# Chats per folder on the overview. Every row has an avatar image that
+# Opera's servers fetch up front, so the page stays light; the rest are one
+# "More" link away.
+OVERVIEW_SECTION_LIMIT = 15
+# Longer chat names are cut on the overview so every row fits on one line:
+# Opera Mini ends a folded link group at a link that wraps.
+OVERVIEW_NAME_LIMIT = 20
 
 
 def _csrf_token(session_token):
@@ -90,14 +93,6 @@ def require_web_auth(fn):
         return _set_session_cookie(resp, token)
 
     return wrapper
-
-
-@bp.route("/foldtest", methods=["GET"])
-def foldtest():
-    """Temporary: static page for checking how Opera Mini labels the link
-    lists it folds. Holds no user data, so it needs no login."""
-    n = min(max(request.args.get("n", 12, type=int), 1), 40)
-    return render_template("foldtest.html", n=n)
 
 
 @bp.route("/login", methods=["GET"])
@@ -171,34 +166,41 @@ def login_verify():
 @bp.route("/chats", methods=["GET"])
 @require_web_auth
 def chats():
-    """"All chats" and every Telegram folder as a list of headings, one of
-    them open with its chats underneath. Each heading is a link that reopens
-    the page with that folder expanded (and scrolled to), so feature-phone
-    browsers get an accordion without JavaScript. ?folder=<id> picks the open
-    folder; without it "All chats" is open."""
+    """Without ?folder: "All chats" and every Telegram folder on one page,
+    each a heading over its first few chats. Opera Mini (in mobile view)
+    folds every run of 10+ links into a group the phone opens and closes
+    instantly, so each folder becomes one of those. With ?folder=<id>: that
+    folder's full list, with folding off."""
     try:
         sections = load_chat_list(g.session_string)
         error = None
     except TeleliteError as e:
         sections = []
         error = _error_message(e)
-    folder_id = _folder_id()
-    if folder_id is None:
-        folder_id = ALL_CHATS_ID
-    current = next((s for s in sections if s["id"] == folder_id), None)
-    if current:
-        current["chats"] = [
+    for section in sections:
+        section["chats"] = [
             dict(c, placeholder=None if c["has_photo"] else _placeholder_url(c))
-            for c in current["chats"]
+            for c in section["chats"]
         ]
+    folder_id = _folder_id()
+    current = next((s for s in sections if s["id"] == folder_id), None)
     return render_template(
         "chats.html",
         sections=sections,
         current=current,
-        no_folder_open=NO_FOLDER_OPEN,
+        section_limit=OVERVIEW_SECTION_LIMIT,
         error=error,
         csrf_token=g.csrf_token,
     )
+
+
+def _short_name(name):
+    if len(name) <= OVERVIEW_NAME_LIMIT:
+        return name
+    return name[: OVERVIEW_NAME_LIMIT - 1].rstrip() + "..."
+
+
+bp.add_app_template_filter(_short_name, "short_name")
 
 
 @bp.route("/chats/<chat_id>/avatar", methods=["GET"])
