@@ -206,6 +206,9 @@ def get_chat_messages(chat_id):
         msgs = get_messages(g.session_string, parsed_chat_id, before_id=before_id, limit=limit)
     except TeleliteError as e:
         return _error_response(e)
+    # The phone apps only show "text", so a message without any gets a
+    # label for what it is instead, e.g. "[photo]".
+    msgs = [dict(m, text=m["text"] or f"[{m.get('media') or 'non-text message'}]") for m in msgs]
     return jsonify(messages=msgs)
 
 

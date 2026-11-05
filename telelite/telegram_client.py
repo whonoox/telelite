@@ -446,15 +446,61 @@ async def _get_messages(client, chat_id, before_id, limit):
     messages.reverse()  # oldest -> newest, per v1 conversation-view spec
     # sender_id and date aren't rendered by any client (v1 conversation view
     # only shows out/text) -- left out of the payload rather than shipped
-    # as dead weight over a slow connection.
+    # as dead weight over a slow connection. "text" is the message or
+    # caption (possibly empty); "media" names any attachment.
     return [
         {
             "id": m.id,
             "out": bool(m.out),
-            "text": m.message or "[non-text message]",
+            "text": m.message or "",
+            "media": _media_label(m),
         }
         for m in messages
     ]
+
+
+def _media_label(m):
+    """A short name for what a message carries besides text, or None. The
+    order matters: stickers, GIFs and round video messages are all
+    documents, and GIFs are videos too. Telethon's photo/document also
+    report a link preview's image, which isn't an attachment."""
+    if m.action:
+        return "service message"
+    if isinstance(m.media, types.MessageMediaWebPage):
+        return None
+    if _is_photo(m):
+        return "photo"
+    if m.sticker:
+        return "sticker"
+    if m.gif:
+        return "gif"
+    if m.video_note:
+        return "video message"
+    if m.video:
+        return "video"
+    if m.voice:
+        return "voice"
+    if m.audio:
+        return "audio"
+    if m.document:
+        return "file"
+    if m.geo or m.venue:
+        return "location"
+    if m.contact:
+        return "contact"
+    if m.poll:
+        return "poll"
+    if m.dice:
+        return "dice"
+    if m.game:
+        return "game"
+    if m.media:
+        return "media"
+    return None
+
+
+def _is_photo(m):
+    return isinstance(m.media, types.MessageMediaPhoto) and m.media.photo is not None
 
 
 def get_messages(session_string, chat_id, before_id=None, limit=20):
@@ -470,6 +516,47 @@ def get_messages(session_string, chat_id, before_id=None, limit=20):
         raise
     except Exception as e:
         raise TeleliteError(f"Could not load messages: {e}")
+
+
+# Photo size to fetch for a message photo: the smallest Telegram has that
+# is still at least this many pixels on its long side (it gets shrunk to
+# fit a feature-phone screen afterwards anyway).
+_PHOTO_FETCH_MIN_PX = 320
+
+
+def _pick_photo_size(photo):
+    sizes = [s for s in photo.sizes if hasattr(s, "w") and hasattr(s, "h")]
+    if not sizes:
+        return None
+    sizes.sort(key=lambda s: max(s.w, s.h))
+    return next((s for s in sizes if max(s.w, s.h) >= _PHOTO_FETCH_MIN_PX), sizes[-1])
+
+
+async def _download_message_photo(client, chat_id, message_id):
+    entity = await _resolve_entity(client, chat_id)
+    m = await client.get_messages(entity, ids=message_id)
+    if m is None or not _is_photo(m):
+        return None
+    return await client.download_media(m, file=bytes, thumb=_pick_photo_size(m.photo))
+
+
+def download_message_photo(session_string, chat_id, message_id):
+    """Raw JPEG bytes of a message's photo at a modest size, or None if the
+    message doesn't exist or isn't a photo. Always hits Telegram."""
+    try:
+        return _run(
+            _with_client(
+                session_string, lambda c: _download_message_photo(c, chat_id, message_id)
+            )
+        )
+    except FloodWaitError as e:
+        raise TeleliteError(
+            "Rate limited by Telegram, please wait.", code="flood_wait", retry_after=e.seconds
+        )
+    except TeleliteError:
+        raise
+    except Exception as e:
+        raise TeleliteError(f"Could not load photo: {e}")
 
 
 async def _send_message(client, chat_id, text):

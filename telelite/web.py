@@ -23,6 +23,7 @@ from .telegram_client import (
     send_message,
     verify_code,
 )
+from .photos import message_photo_jpeg
 from .utils import cookie_is_secure, parse_chat_id, phone_text
 
 bp = Blueprint("web", __name__, url_prefix="/web")
@@ -297,6 +298,24 @@ def conversation(chat_id):
         folder_id=_folder_id(),
         csrf_token=g.csrf_token,
     )
+
+
+@bp.route("/chats/<chat_id>/photos/<int:message_id>.jpg", methods=["GET"])
+@require_web_auth
+def message_photo(chat_id, message_id):
+    parsed_chat_id = parse_chat_id(chat_id)
+    if parsed_chat_id is None:
+        abort(404)
+    try:
+        photo = message_photo_jpeg(g.session_string, parsed_chat_id, message_id)
+    except TeleliteError:
+        photo = None
+    if photo is None:
+        abort(404)
+    resp = Response(photo, mimetype="image/jpeg")
+    # A message's photo never changes; only this account may see it.
+    resp.headers["Cache-Control"] = "private, max-age=604800"
+    return resp
 
 
 @bp.route("/chats/<chat_id>/reply", methods=["POST"])
