@@ -96,7 +96,8 @@ def require_web_auth(fn):
 def foldtest():
     """Temporary: static page for checking how Opera Mini labels the link
     lists it folds. Holds no user data, so it needs no login."""
-    return render_template("foldtest.html")
+    n = min(max(request.args.get("n", 12, type=int), 1), 40)
+    return render_template("foldtest.html", n=n)
 
 
 @bp.route("/login", methods=["GET"])
