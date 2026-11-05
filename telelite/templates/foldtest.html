@@ -1,0 +1,83 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Fold test - TeleLite</title>
+{# Temporary: which markup makes Opera Mini's "fold linklists" label a
+   folded group? Deliberately no handheld stylesheet, so Opera's mobile view
+   folds this page. Each case is a run of short links between plain text. #}
+<style type="text/css" media="screen">
+body{margin:0;padding:4px;font-family:sans-serif}
+.case{background:#eef3f8;color:#517da2;font-weight:bold;padding:4px;margin-top:8px}
+a{display:block;padding:3px 0}
+img{vertical-align:middle;margin-right:4px}
+</style>
+</head>
+<body>
+{% macro links(tag, n=8) %}{% for i in range(1, n + 1) %}<a href="?{{ tag }}={{ i }}">{{ tag }} chat {{ i }}</a>
+{% endfor %}{% endmacro %}
+<p>Note the label Opera shows on each folded group.</p>
+
+<p class="case">Case A (plain)</p>
+{{ links("A") }}
+
+<p class="case">Case B (div title)</p>
+<div title="B-div-title">
+{{ links("B") }}
+</div>
+
+<p class="case">Case C (ul title)</p>
+<ul title="C-ul-title">
+{% for i in range(1, 9) %}<li><a href="?C={{ i }}">C chat {{ i }}</a></li>
+{% endfor %}
+</ul>
+
+<p class="case">Case D (map title)</p>
+<map name="D-map-name" title="D-map-title">
+{{ links("D") }}
+</map>
+
+<p class="case">Case E (fieldset legend)</p>
+<fieldset><legend>E-legend</legend>
+{{ links("E") }}
+</fieldset>
+
+<p class="case">Case F (link titles)</p>
+{% for i in range(1, 9) %}<a href="?F={{ i }}" title="F-link-title">F chat {{ i }}</a>
+{% endfor %}
+
+<p class="case">Case G (dl dt)</p>
+<dl><dt>G-dt</dt><dd>
+{{ links("G") }}
+</dd></dl>
+
+<p class="case">Case H (table caption)</p>
+<table summary="H-summary"><caption>H-caption</caption>
+{% for i in range(1, 9) %}<tr><td><a href="?H={{ i }}">H chat {{ i }}</a></td></tr>
+{% endfor %}
+</table>
+
+<p class="case">Case J (h2 right before)</p>
+<h2>J-h2</h2>
+{{ links("J") }}
+
+<p class="case">Case K (with avatar images)</p>
+{% for i in range(1, 9) %}<a href="?K={{ i }}"><img src="{{ url_for('web.avatar_placeholder', color=i % 7, letter='K') }}" width="24" height="24" alt="">K chat {{ i }}</a>
+{% endfor %}
+
+<p class="case">Case L (one long name in the middle)</p>
+{{ links("L", 4) }}<a href="?L=long">L chat with a really long name that has to wrap onto two lines</a>
+{{ links("M", 4) }}
+
+<p class="case">Case N (3 links)</p>
+{{ links("N", 3) }}
+
+<p class="case">Case P (5 links)</p>
+{{ links("P", 5) }}
+
+<p class="case">Case Q (7 links)</p>
+{{ links("Q", 7) }}
+
+<p>End of test.</p>
+</body>
+</html>

@@ -92,6 +92,13 @@ def require_web_auth(fn):
     return wrapper
 
 
+@bp.route("/foldtest", methods=["GET"])
+def foldtest():
+    """Temporary: static page for checking how Opera Mini labels the link
+    lists it folds. Holds no user data, so it needs no login."""
+    return render_template("foldtest.html")
+
+
 @bp.route("/login", methods=["GET"])
 def login_phone():
     error = "Session expired, please log in again." if request.args.get("expired") else None
