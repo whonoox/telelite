@@ -1,16 +1,21 @@
 import asyncio
+from datetime import datetime, timezone
 
-from telethon import TelegramClient
+from telethon import TelegramClient, utils
 from telethon.errors import (
     FloodWaitError,
     PhoneCodeExpiredError,
     PhoneCodeInvalidError,
     PhoneNumberInvalidError,
+    RPCError,
     SessionPasswordNeededError,
 )
 from telethon.sessions import StringSession
+from telethon.tl import functions, types
+from telethon.tl.custom import Dialog
 
 from . import config
+from . import folders as folder_rules
 from .utils import is_allowed_user
 
 
@@ -211,38 +216,206 @@ def _has_photo(entity):
     return getattr(photo, "photo_id", None) is not None
 
 
-async def _list_dialogs(client):
-    dialogs = await client.get_dialogs(limit=50)
+def _dialog_summary(d):
     # Data usage matters here (this is the payload every feature-phone client
     # fetches to render the chat list): no client renders a last-message
     # preview or its timestamp today, so they're left out entirely rather
     # than shipped as dead weight over a slow connection.
-    return [
-        {
-            "chat_id": d.id,
-            "name": d.name or getattr(d.entity, "title", None) or str(d.id),
-            "unread_count": d.unread_count,
-            # Broadcast channels don't let regular members post; private chats,
-            # basic groups, and supergroups (megagroups) do. Only real
-            # (non-megagroup) Channel entities carry `.broadcast`, so this
-            # defaults to True (repliable) for every other dialog type.
-            # Creators/owners and admins with posting rights can post on broadcast channels.
-            "can_reply": (
-                not getattr(d.entity, "broadcast", False)
-                or getattr(d.entity, "creator", False)
-                or getattr(getattr(d.entity, "admin_rights", None), "post_messages", False)
-            ),
-            # Lets clients skip requesting an avatar for chats that don't
-            # have one, instead of a guaranteed-404 round trip per chat.
-            "has_photo": _has_photo(d.entity),
-        }
-        for d in dialogs
-    ]
+    return {
+        "chat_id": d.id,
+        "name": d.name or getattr(d.entity, "title", None) or str(d.id),
+        "unread_count": d.unread_count,
+        # Broadcast channels don't let regular members post; private chats,
+        # basic groups, and supergroups (megagroups) do. Only real
+        # (non-megagroup) Channel entities carry `.broadcast`, so this
+        # defaults to True (repliable) for every other dialog type.
+        # Creators/owners and admins with posting rights can post on broadcast channels.
+        "can_reply": (
+            not getattr(d.entity, "broadcast", False)
+            or getattr(d.entity, "creator", False)
+            or getattr(getattr(d.entity, "admin_rights", None), "post_messages", False)
+        ),
+        # Lets clients skip requesting an avatar for chats that don't
+        # have one, instead of a guaranteed-404 round trip per chat.
+        "has_photo": _has_photo(d.entity),
+    }
+
+
+async def _list_dialogs(client):
+    dialogs = await client.get_dialogs(limit=50)
+    return [_dialog_summary(d) for d in dialogs]
 
 
 def list_dialogs(session_string):
     try:
         return _run(_with_client(session_string, _list_dialogs))
+    except FloodWaitError as e:
+        raise TeleliteError(
+            "Rate limited by Telegram, please wait.", code="flood_wait", retry_after=e.seconds
+        )
+    except TeleliteError:
+        raise
+    except Exception as e:
+        raise TeleliteError(f"Could not load chats: {e}")
+
+
+# How many recent chats the browser chat list scans to fill folders.
+# Telegram sends folder *rules*, not folder contents, so category folders
+# ("Channels", "Unread") are filled from this window; chats added to a
+# folder by hand are looked up directly even when they're older.
+FOLDER_SCAN_LIMIT = 100
+CHAT_LIST_LIMIT = 50
+
+
+def _chat_record(d):
+    entity = d.entity
+    if isinstance(entity, types.User):
+        if entity.bot:
+            kind = "bot"
+        elif entity.contact or entity.is_self:
+            kind = "contact"
+        else:
+            kind = "non_contact"
+    elif d.is_group:
+        kind = "group"
+    else:
+        kind = "broadcast"
+    mute_until = getattr(d.dialog.notify_settings, "mute_until", None)
+    record = _dialog_summary(d)
+    record.update(
+        kind=kind,
+        unread=bool(d.unread_count or d.dialog.unread_mark),
+        muted=bool(mute_until and mute_until > datetime.now(timezone.utc)),
+        archived=d.archived,
+        date=d.date,
+    )
+    return record
+
+
+def _peer_id(input_peer, self_id):
+    if isinstance(input_peer, types.InputPeerSelf):
+        return self_id
+    try:
+        return utils.get_peer_id(input_peer)
+    except TypeError:
+        return None
+
+
+def _folder_spec(f, self_id):
+    def ids(peers):
+        return [pid for pid in (_peer_id(p, self_id) for p in peers) if pid is not None]
+
+    is_chatlist = isinstance(f, types.DialogFilterChatlist)
+    kinds = set()
+    if not is_chatlist:
+        for flag, kind in (
+            ("contacts", "contact"),
+            ("non_contacts", "non_contact"),
+            ("bots", "bot"),
+            ("groups", "group"),
+            ("broadcasts", "broadcast"),
+        ):
+            if getattr(f, flag):
+                kinds.add(kind)
+    return {
+        "id": f.id,
+        "title": f.title,
+        "pinned": ids(f.pinned_peers),
+        "include": ids(f.include_peers),
+        "exclude": [] if is_chatlist else ids(f.exclude_peers),
+        "kinds": kinds,
+        "exclude_muted": not is_chatlist and bool(f.exclude_muted),
+        "exclude_read": not is_chatlist and bool(f.exclude_read),
+        "exclude_archived": not is_chatlist and bool(f.exclude_archived),
+        # peer id -> InputPeer, for looking up hand-picked chats directly
+        "inputs": {
+            _peer_id(p, self_id): p for p in list(f.pinned_peers) + list(f.include_peers)
+        },
+    }
+
+
+async def _peer_dialogs(client, input_peers):
+    """Dialogs for specific chats, for folder members outside the scanned
+    window of recent chats."""
+    found = []
+    for i in range(0, len(input_peers), 100):
+        res = await client(
+            functions.messages.GetPeerDialogsRequest(
+                peers=[types.InputDialogPeer(peer=p) for p in input_peers[i : i + 100]]
+            )
+        )
+        entities = {utils.get_peer_id(e): e for e in list(res.users) + list(res.chats)}
+        messages = {
+            (utils.get_peer_id(m.peer_id), m.id): m
+            for m in res.messages
+            if getattr(m, "peer_id", None) is not None
+        }
+        for dialog in res.dialogs:
+            if not isinstance(dialog, types.Dialog):
+                continue
+            peer_id = utils.get_peer_id(dialog.peer)
+            if peer_id not in entities:
+                continue
+            message = messages.get((peer_id, dialog.top_message))
+            found.append(Dialog(client, dialog, entities, message))
+    return found
+
+
+async def _load_chat_list(client, folder_id):
+    # Folders are an extra on top of the chat list: if Telegram rejects
+    # either folder request, show the plain list rather than an error page.
+    # (A dead session still surfaces, from get_dialogs below.)
+    try:
+        result = await client(functions.messages.GetDialogFiltersRequest())
+        self_id = await client.get_peer_id("me")
+        folders = [
+            _folder_spec(f, self_id)
+            for f in getattr(result, "filters", result)
+            if isinstance(f, (types.DialogFilter, types.DialogFilterChatlist))
+        ]
+    except RPCError:
+        folders = []
+
+    dialogs = await client.get_dialogs(limit=FOLDER_SCAN_LIMIT)
+    seen = {d.id for d in dialogs}
+    missing = {}
+    for folder in folders:
+        for peer_id, input_peer in folder["inputs"].items():
+            if peer_id is not None and peer_id not in seen:
+                missing[peer_id] = input_peer
+    try:
+        extra = await _peer_dialogs(client, list(missing.values())) if missing else []
+    except RPCError:
+        extra = []  # folders just miss their older hand-picked chats this time
+
+    scanned = [_chat_record(d) for d in dialogs]
+    everything = scanned + [_chat_record(d) for d in extra if d.id not in seen]
+
+    current = next((f for f in folders if f["id"] == folder_id), None)
+    if current is None:
+        chats = scanned[:CHAT_LIST_LIMIT]
+    else:
+        chats = folder_rules.chats_in_folder(current, everything)[:CHAT_LIST_LIMIT]
+    return {
+        "folders": [
+            {
+                "id": f["id"],
+                "title": f["title"],
+                "unread": folder_rules.unread_chat_count(f, everything),
+            }
+            for f in folders
+        ],
+        "folder": None if current is None else {"id": current["id"], "title": current["title"]},
+        "chats": chats,
+    }
+
+
+def load_chat_list(session_string, folder_id=None):
+    """Chat list for the browser client: the user's Telegram folders (with
+    unread-chat counts) plus the chats in folder_id, or in "All chats" when
+    folder_id is None or no longer exists."""
+    try:
+        return _run(_with_client(session_string, lambda c: _load_chat_list(c, folder_id)))
     except FloodWaitError as e:
         raise TeleliteError(
             "Rate limited by Telegram, please wait.", code="flood_wait", retry_after=e.seconds

@@ -1,21 +1,27 @@
-<title>{{ chat_name }}</title>
-<h1>{{ chat_name }}</h1>
-{% if error %}<p>Error: {{ error }}</p>{% endif %}
+{% extends "base.html" %}
+{% block title %}{{ chat_name }} - TeleLite{% endblock %}
+{% block body %}
+<div class="bar"><a class="back" href="{{ url_for('web.chats', folder=folder_id) }}">&laquo;</a> {{ chat_name }}</div>
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+<div class="thread">
 {% if has_more %}
-<p><a href="{{ url_for('web.conversation', chat_id=chat_id, before_id=oldest_id, name=chat_name, can_reply=(1 if can_reply else 0)) }}">Older messages</a></p>
+<div class="more"><a href="{{ url_for('web.conversation', chat_id=chat_id, before_id=oldest_id, name=chat_name, can_reply=(1 if can_reply else 0), folder=folder_id) }}">Older messages</a></div>
 {% endif %}
-<ul>
 {% for m in messages %}
-<li>{% if m.out %}Me{% else %}Them{% endif %}: {{ m.text }}</li>
+<div class="msg{% if m.out %} out{% endif %}">{{ m.text }}</div>
+{% else %}
+{% if not error %}<div class="empty">No messages yet.</div>{% endif %}
 {% endfor %}
-</ul>
+</div>
 {% if can_reply %}
-<form method="post" action="{{ url_for('web.reply', chat_id=chat_id) }}">
+<form class="compose" method="post" action="{{ url_for('web.reply', chat_id=chat_id) }}">
 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 <input type="hidden" name="name" value="{{ chat_name }}">
 <input type="hidden" name="can_reply" value="{{ '1' if can_reply else '0' }}">
-<p><textarea name="text" rows="3" cols="20">{{ draft_text }}</textarea></p>
-<p><input type="submit" value="Send"></p>
+{% if folder_id %}<input type="hidden" name="folder" value="{{ folder_id }}">{% endif %}
+<textarea name="text" rows="2" cols="20">{{ draft_text }}</textarea><br>
+<input class="btn" type="submit" value="Send">
 </form>
 {% endif %}
-<p><a href="{{ url_for('web.chats') }}">Back to chats</a></p>
+<div class="foot"><a href="{{ url_for('web.conversation', chat_id=chat_id, name=chat_name, can_reply=(1 if can_reply else 0), folder=folder_id) }}">Refresh</a> &middot; <a href="{{ url_for('web.chats', folder=folder_id) }}">Back to chats</a></div>
+{% endblock %}

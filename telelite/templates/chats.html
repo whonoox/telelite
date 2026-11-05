@@ -1,16 +1,23 @@
-<title>TeleLite Chats</title>
-<h1>Chats</h1>
-{% if error %}<p>Error: {{ error }}</p>{% endif %}
-{% if chats %}
-<ol>
-{% for chat in chats %}
-<li>{% if chat.has_photo %}<img src="{{ url_for('web.avatar', chat_id=chat.chat_id) }}" width="24" height="24" alt=""> {% endif %}<a href="{{ url_for('web.conversation', chat_id=chat.chat_id, name=chat.name, can_reply=(1 if chat.can_reply else 0)) }}">{{ chat.name }}{% if chat.unread_count %} ({{ chat.unread_count }}){% endif %}</a></li>
-{% endfor %}
-</ol>
-{% else %}
-<p>No chats found.</p>
+{% extends "base.html" %}
+{% block title %}{{ folder.title if folder else "Chats" }} - TeleLite{% endblock %}
+{% block body %}
+<div class="bar">TeleLite <span class="sub">{{ folder.title if folder else "All chats" }}</span></div>
+{% if folders %}
+<div class="tabs"><a class="tab{% if not folder %} on{% endif %}" href="{{ url_for('web.chats') }}">All</a>
+{% for f in folders %} <a class="tab{% if folder and folder.id == f.id %} on{% endif %}" href="{{ url_for('web.chats', folder=f.id) }}">{{ f.title }}{% if f.unread %} <span class="n">{{ f.unread }}</span>{% endif %}</a>
+{% endfor %}</div>
 {% endif %}
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+{% for chat in chats %}
+<a class="chat{% if chat.unread_count %} unread{% endif %}" href="{{ url_for('web.conversation', chat_id=chat.chat_id, name=chat.name, can_reply=(1 if chat.can_reply else 0), folder=(folder.id if folder else None)) }}">{% if chat.unread_count %}<span class="badge">{{ chat.unread_count }}</span>{% endif %}{% if chat.has_photo %}<img src="{{ url_for('web.avatar', chat_id=chat.chat_id) }}" width="24" height="24" alt="">{% else %}<span class="ph c{{ chat.chat_id % 7 }}">{{ chat.name[:1]|upper }}</span>{% endif %}<span class="name">{{ chat.name }}</span></a>
+{% else %}
+{% if not error %}<div class="empty">No chats here.</div>{% endif %}
+{% endfor %}
+<div class="foot">
 <form method="post" action="/web/logout">
 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-<p><input type="submit" value="Logout"></p>
+<a href="{{ url_for('web.chats', folder=(folder.id if folder else None)) }}">Refresh</a> &middot;
+<input class="link-btn" type="submit" value="Log out">
 </form>
+</div>
+{% endblock %}

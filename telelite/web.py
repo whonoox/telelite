@@ -10,7 +10,7 @@ from .avatars import get_avatar_thumbnail
 from .telegram_client import (
     TeleliteError,
     get_messages,
-    list_dialogs,
+    load_chat_list,
     log_out,
     send_code,
     send_message,
@@ -153,13 +153,18 @@ def login_verify():
 @require_web_auth
 def chats():
     try:
-        dialogs = list_dialogs(g.session_string)
+        view = load_chat_list(g.session_string, _folder_id())
         error = None
     except TeleliteError as e:
-        dialogs = []
+        view = {"folders": [], "folder": None, "chats": []}
         error = _error_message(e)
     return render_template(
-        "chats.html", chats=dialogs, error=error, csrf_token=g.csrf_token
+        "chats.html",
+        chats=view["chats"],
+        folders=view["folders"],
+        folder=view["folder"],
+        error=error,
+        csrf_token=g.csrf_token,
     )
 
 
@@ -186,6 +191,11 @@ def avatar(chat_id):
 
 def _chat_name(chat_id):
     return request.values.get("name") or f"Chat {chat_id}"
+
+
+def _folder_id():
+    """The chat-list folder the user came from, so "Back" returns to it."""
+    return request.values.get("folder", type=int)
 
 
 @bp.route("/chats/<chat_id>", methods=["GET"])
@@ -215,6 +225,7 @@ def conversation(chat_id):
         has_more=len(msgs) == MESSAGES_PER_PAGE,
         oldest_id=msgs[0]["id"] if msgs else None,
         draft_text="",
+        folder_id=_folder_id(),
         csrf_token=g.csrf_token,
     )
 
@@ -245,6 +256,7 @@ def reply(chat_id):
             has_more=len(msgs) == MESSAGES_PER_PAGE,
             oldest_id=msgs[0]["id"] if msgs else None,
             draft_text=text,
+            folder_id=_folder_id(),
             csrf_token=g.csrf_token,
         )
 
@@ -265,6 +277,7 @@ def reply(chat_id):
             chat_id=parsed_chat_id,
             name=chat_name,
             can_reply="1" if can_reply else "0",
+            folder=_folder_id(),
         ),
         code=303,
     )

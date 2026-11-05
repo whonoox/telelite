@@ -1,14 +1,21 @@
-<title>TeleLite Login</title>
-<h1>Enter code</h1>
-{% if error %}<p>Error: {{ error }}</p>{% endif %}
-<p>Check your Telegram app for the login code.</p>
-<form method="post" action="/web/login/verify">
+{% extends "base.html" %}
+{% block title %}TeleLite Login{% endblock %}
+{% block body %}
+<div class="bar"><a class="back" href="/web/login">&laquo;</a> Enter code</div>
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+<form method="post" action="/web/login/verify" class="pad">
 <input type="hidden" name="pending_id" value="{{ pending_id }}">
-<p>Code:<br>
-<input type="text" name="code" size="10"></p>
+<div class="field">
+<label for="code">Login code</label>
+<input class="input" type="text" id="code" name="code" size="10">
+<div class="hint">Telegram sent it to your other devices.</div>
+</div>
 {% if needs_password %}
-<p>2FA password:<br>
-<input type="password" name="password" size="20"></p>
+<div class="field">
+<label for="password">2FA password</label>
+<input class="input" type="password" id="password" name="password" size="20">
+</div>
 {% endif %}
-<p><input type="submit" value="Verify"></p>
+<input class="btn" type="submit" value="Log in">
 </form>
+{% endblock %}
