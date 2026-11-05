@@ -6,14 +6,16 @@
 {# Temporary: probing Opera Mini's "fold linklists". Known so far: a run
    of 10+ links folds, the group is labelled with its first link's text, and
    a link that wraps onto two lines ends the run. Only an <hr> splits
-   two runs that sit back to back. This round: why a styled label link
-   followed by image links still came out as "No title". #}
+   two runs that sit back to back, and any <img> inside the links drops the
+   label link out of the group ("No title"). This round: other ways to show
+   avatars. #}
 <style type="text/css" media="screen">
 body{margin:0;padding:4px;font-family:sans-serif}
 .case{background:#eef3f8;color:#517da2;font-weight:bold;padding:4px;margin-top:8px}
 a{display:block;padding:3px 0}
 img{vertical-align:middle;margin-right:4px}
-.gap{padding:3px 0}
+.bg{background-repeat:no-repeat;background-position:2px 50%;padding:7px 0 7px 32px;color:#222;text-decoration:none;border-bottom:1px solid #c9d4de}
+.inl{display:inline}
 .sec-h{background:#eef3f8;color:#517da2;font-weight:bold;padding:4px;text-decoration:none}
 .chat{border-bottom:1px solid #c9d4de;color:#222;text-decoration:none}
 .badge{background:#4fae4e;color:#fff;font-size:small;font-weight:bold;padding:0 5px}
@@ -26,34 +28,23 @@ img{vertical-align:middle;margin-right:4px}
 {% for i in range(1, count + 1) %}<a class="chat" href="?{{ title }}={{ i }}"><img src="{{ url_for('web.avatar_placeholder', color=i % 7, letter=title[0]) }}" width="24" height="24" alt="">{{ title }} chat {{ i }}{% if i % 3 == 0 %} <span class="badge">{{ i }}</span>{% endif %}</a>
 {% endfor %}<a href="?more={{ title }}">More in {{ title }} &raquo;</a>
 {% endmacro %}
-<p>For each case: what label does the folded group show, and is the first (label) link inside the group or above it? {{ n }} links per run.</p>
+<p>For each case: what label does the folded group show, is the label link inside the group, and do the avatars show? {{ n }} links per run.</p>
 
-<p class="case">Case V (plain label link, text-only links)</p>
-<a href="?V=label">V-label</a>
-{{ links("V") }}
-
-<p class="case">Case W (plain label link, links starting with an image)</p>
-<a href="?W=label">W-label</a>
-{% for i in range(1, n + 1) %}<a href="?W={{ i }}"><img src="{{ url_for('web.avatar_placeholder', color=i % 7, letter='W') }}" width="24" height="24" alt="">W chat {{ i }}</a>
+<p class="case">Case BG (avatar as link background)</p>
+<a href="?BG=label">BG-label</a>
+{% for i in range(1, n + 1) %}<a class="bg" style="background-image:url({{ url_for('web.avatar_placeholder', color=i % 7, letter='B') }})" href="?BG={{ i }}">BG chat {{ i }}</a>
 {% endfor %}
 
-<p class="case">Case X (styled heading label link, text-only links)</p>
-<a class="sec-h" href="?X=label">X-label</a>
-{{ links("X") }}
-
-<p class="case">Case X2 (bold label link, text-only links)</p>
-<a href="?X2=label"><b>X2-label</b></a>
-{{ links("X2") }}
-
-<p class="case">Case Y (plain label link, image after the name)</p>
-<a href="?Y=label">Y-label</a>
-{% for i in range(1, n + 1) %}<a href="?Y={{ i }}">Y chat {{ i }} <img src="{{ url_for('web.avatar_placeholder', color=i % 7, letter='Y') }}" width="24" height="24" alt=""></a>
+<p class="case">Case OUT (avatar image beside the link)</p>
+<a href="?OUT=label">OUT-label</a>
+{% for i in range(1, n + 1) %}<div><img src="{{ url_for('web.avatar_placeholder', color=i % 7, letter='O') }}" width="24" height="24" alt=""><a class="inl" href="?OUT={{ i }}">OUT chat {{ i }}</a></div>
 {% endfor %}
 
-<p class="case">Case T2 (real layout, plain label links, hr between folders)</p>
-{{ folder("Unread", 36, 12) }}<hr>
-{{ folder("Channels", 4, 12) }}<hr>
-{{ folder("Nerds", 0, 12) }}
+<p class="case">Case TXT (real layout, text only)</p>
+{% for title, unread in [("Unread", 36), ("Channels", 4), ("Nerds", 0)] %}<a href="?folder={{ title }}">{{ title }}{% if unread %} ({{ unread }}){% endif %}</a>
+{% for i in range(1, n + 1) %}<a class="chat" href="?{{ title }}={{ i }}">{{ title }} chat {{ i }}{% if i % 3 == 0 %} <span class="badge">{{ i }}</span>{% endif %}</a>
+{% endfor %}<hr>
+{% endfor %}
 
 <p>End of test.</p>
 </body>
