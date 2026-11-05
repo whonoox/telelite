@@ -122,40 +122,52 @@ SECTIONS = [
 ]
 
 
-def test_overview_shows_every_folder_as_a_titled_section(client, session_token):
+def test_chats_page_lists_folders_with_all_chats_open(client, session_token):
     token, session_string = session_token
     client.set_cookie("telelite_token", token)
     with patch("telelite.web.load_chat_list", return_value=SECTIONS) as mock_load:
         html = client.get("/web/chats").get_data(as_text=True)
     mock_load.assert_called_once_with(session_string)
-    assert '<div class="sec" title="Channels">' in html
-    assert '<h2 class="sec-h">Channels <span class="n">1</span></h2>' in html
-    assert '<h2 class="sec-h">Job</h2>' in html
-    assert "News &lt;b&gt;" in html  # still escaped
-    # Sections are capped; the rest is one link away.
-    assert html.count('class="chat') == 15 + 1
-    assert 'href="/web/chats?folder=0">More in All chats' in html
-    assert "More in Channels" not in html
-    # Chats opened from the overview come back to the overview.
-    assert "folder=" not in html.split('href="/web/chats/1?')[1].split('"')[0]
-
-
-def test_folder_page_lists_one_section_and_keeps_folder_in_links(client, session_token):
-    token, _ = session_token
-    client.set_cookie("telelite_token", token)
-    with patch("telelite.web.load_chat_list", return_value=SECTIONS):
-        html = client.get("/web/chats?folder=0").get_data(as_text=True)
+    # Every folder is a navigable heading; the open one closes it again.
+    assert ('<a class="sec-h open" name="s0" href="/web/chats?folder=-1#s0">'
+            '<span class="tog">-</span> All chats <span class="n">1</span></a>') in html
+    assert ('<a class="sec-h" name="s2" href="/web/chats?folder=2#s2">'
+            '<span class="tog">+</span> Channels <span class="n">1</span></a>') in html
+    assert 'href="/web/chats?folder=3#s3"><span class="tog">+</span> Job</a>' in html
+    # Only the open folder's chats are on the page, and they remember it.
     assert html.count('class="chat') == 20
-    assert 'href="/web/chats">&laquo;</a> All chats' in html
+    assert "News" not in html
     assert "folder=0" in html.split('href="/web/chats/1?')[1].split('"')[0]
 
 
-def test_unknown_folder_falls_back_to_overview(client, session_token):
+def test_folder_param_opens_that_folder(client, session_token):
     token, _ = session_token
     client.set_cookie("telelite_token", token)
     with patch("telelite.web.load_chat_list", return_value=SECTIONS):
-        html = client.get("/web/chats?folder=404").get_data(as_text=True)
-    assert '<div class="sec" title="All chats">' in html
+        html = client.get("/web/chats?folder=2").get_data(as_text=True)
+    assert html.count('class="chat') == 1
+    assert "News &lt;b&gt;" in html  # still escaped
+    assert '<a class="sec-h open" name="s2" href="/web/chats?folder=-1#s2">' in html
+    assert '<a class="sec-h" name="s0" href="/web/chats?folder=0#s0">' in html
+
+
+def test_all_folders_can_be_closed(client, session_token):
+    token, _ = session_token
+    client.set_cookie("telelite_token", token)
+    with patch("telelite.web.load_chat_list", return_value=SECTIONS):
+        for folder in ("-1", "404"):
+            html = client.get(f"/web/chats?folder={folder}").get_data(as_text=True)
+            assert 'class="chat' not in html
+            assert "sec-h open" not in html
+            assert html.count('class="sec-h"') == 3
+
+
+def test_empty_open_folder_says_so(client, session_token):
+    token, _ = session_token
+    client.set_cookie("telelite_token", token)
+    with patch("telelite.web.load_chat_list", return_value=SECTIONS):
+        html = client.get("/web/chats?folder=3").get_data(as_text=True)
+    assert "No chats here." in html
 
 
 def test_conversation_back_link_returns_to_folder(client, session_token):
@@ -163,7 +175,7 @@ def test_conversation_back_link_returns_to_folder(client, session_token):
     client.set_cookie("telelite_token", token)
     with patch("telelite.web.get_messages", return_value=[{"id": 1, "out": True, "text": "yo"}]):
         html = client.get("/web/chats/5?name=Abebe&folder=3").get_data(as_text=True)
-    assert 'href="/web/chats?folder=3">&laquo;</a>' in html
+    assert 'href="/web/chats?folder=3#s3">&laquo;</a>' in html
     assert '<input type="hidden" name="folder" value="3">' in html
     assert '<div class="msg out">yo</div>' in html
 
