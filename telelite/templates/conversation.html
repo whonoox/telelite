@@ -1,14 +1,14 @@
 {% extends "base.html" %}
-{% block title %}{{ chat_name }} - TeleLite{% endblock %}
+{% block title %}{{ chat_name|phone_text }} - TeleLite{% endblock %}
 {% block body %}
-<div class="bar"><a class="back" href="{{ url_for('web.chats', folder=folder_id) }}">&laquo;</a> {{ chat_name }}</div>
+<div class="bar"><a class="back" href="{{ url_for('web.chats', folder=folder_id) }}">&laquo;</a> {{ chat_name|phone_text }}</div>
 {% if error %}<div class="err">{{ error }}</div>{% endif %}
 <div class="thread">
 {% if has_more %}
 <div class="more"><a href="{{ url_for('web.conversation', chat_id=chat_id, before_id=oldest_id, name=chat_name, can_reply=(1 if can_reply else 0), folder=folder_id) }}">Older messages</a></div>
 {% endif %}
 {% for m in messages %}
-<div class="msg{% if m.out %} out{% endif %}">{{ m.text }}</div>
+<div class="msg{% if m.out %} out{% endif %}">{{ m.text|phone_text }}</div>
 {% else %}
 {% if not error %}<div class="empty">No messages yet.</div>{% endif %}
 {% endfor %}

@@ -2,16 +2,16 @@
 {% macro chat_row(chat, folder_id, name) -%}
 <a class="chat{% if chat.unread_count %} unread{% endif %}" href="{{ url_for('web.conversation', chat_id=chat.chat_id, name=chat.name, can_reply=(1 if chat.can_reply else 0), folder=folder_id) }}"><img src="{{ chat.placeholder or url_for('web.avatar', chat_id=chat.chat_id) }}" width="24" height="24" alt=""><span class="name">{{ name }}</span>{% if chat.unread_count %} <span class="badge">{{ chat.unread_count }}</span>{% endif %}</a>
 {%- endmacro %}
-{% block title %}{{ current.title if current else "Chats" }} - TeleLite{% endblock %}
+{% block title %}{{ current.title|phone_text if current else "Chats" }} - TeleLite{% endblock %}
 {# The overview leaves out media="handheld" so Opera Mini folds each folder's
    chats; a single folder's page keeps it and lists them flat. #}
 {% block style_media %}{{ "screen,handheld" if current else "screen" }}{% endblock %}
 {% block body %}
 {% if current %}
-<div class="bar"><a class="back" href="{{ url_for('web.chats') }}">&laquo;</a> {{ current.title }}</div>
+<div class="bar"><a class="back" href="{{ url_for('web.chats') }}">&laquo;</a> {{ current.title|phone_text }}</div>
 {% if error %}<div class="err">{{ error }}</div>{% endif %}
 {% for chat in current.chats %}
-{{ chat_row(chat, current.id, chat.name) }}
+{{ chat_row(chat, current.id, chat.name|phone_text) }}
 {% else %}
 <div class="empty">No chats here.</div>
 {% endfor %}
@@ -25,13 +25,13 @@
    otherwise touch. Groups of links with images are labelled "No title", so
    each folder's name sits on the heading just above its group. #}
 {% for section in sections %}
-<div class="sec-h"><a name="s{{ section.id }}" href="{{ url_for('web.chats', folder=section.id) }}">{{ section.title }}</a>{% if section.unread %} <span class="n">{{ section.unread }}</span>{% endif %}</div>
+<div class="sec-h"><a name="s{{ section.id }}" href="{{ url_for('web.chats', folder=section.id) }}">{{ section.title|phone_text }}</a>{% if section.unread %} <span class="n">{{ section.unread }}</span>{% endif %}</div>
 {% for chat in section.chats[:section_limit] %}
-{{ chat_row(chat, None, chat.name|short_name) }}
+{{ chat_row(chat, None, chat.name|phone_text|short_name) }}
 {% else %}
 <div class="empty">No chats here.</div>
 {% endfor %}
-{% if section.total > section_limit %}<a class="sec-more" href="{{ url_for('web.chats', folder=section.id) }}">More in {{ section.title }} &raquo;</a>{% endif %}
+{% if section.total > section_limit %}<a class="sec-more" href="{{ url_for('web.chats', folder=section.id) }}">More in {{ section.title|phone_text }} &raquo;</a>{% endif %}
 <hr class="sec-end">
 {% endfor %}
 {% endif %}
