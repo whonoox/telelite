@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ chat_name }} - TeleLite{% endblock %}
 {% block body %}
-<div class="bar"><a class="back" href="{{ url_for('web.chats', folder=folder_id) }}">&laquo;</a> {{ chat_name }}</div>
+<div class="bar"><a class="back" href="{{ url_for('web.chats', folder=folder_id, _anchor=('s%d' % folder_id if folder_id is not none else none)) }}">&laquo;</a> {{ chat_name }}</div>
 {% if error %}<div class="err">{{ error }}</div>{% endif %}
 <div class="thread">
 {% if has_more %}
@@ -23,5 +23,5 @@
 <input class="btn" type="submit" value="Send">
 </form>
 {% endif %}
-<div class="foot"><a href="{{ url_for('web.conversation', chat_id=chat_id, name=chat_name, can_reply=(1 if can_reply else 0), folder=folder_id) }}">Refresh</a> &middot; <a href="{{ url_for('web.chats', folder=folder_id) }}">Back to chats</a></div>
+<div class="foot"><a href="{{ url_for('web.conversation', chat_id=chat_id, name=chat_name, can_reply=(1 if can_reply else 0), folder=folder_id) }}">Refresh</a> &middot; <a href="{{ url_for('web.chats', folder=folder_id, _anchor=('s%d' % folder_id if folder_id is not none else none)) }}">Back to chats</a></div>
 {% endblock %}

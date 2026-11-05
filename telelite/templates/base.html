@@ -13,8 +13,11 @@
   that browsers which ignore them render fine without. Opera Mini 4.4 also
   ignores float, so floated bits (like the unread badge) go after the
   content they trail, where they still read right when shown inline.
+  The stylesheet also applies to media="handheld": in Opera Mini's mobile
+  view that tells it the page is already phone-ready, which should stop it
+  reflowing the page and folding runs of links into "No title" groups.
 #}
-<style type="text/css">
+<style type="text/css" media="screen,handheld">
 body{margin:0;padding:0;background:#fff;color:#222;font-family:sans-serif}
 a{color:#2a6496}
 img{border:0}
@@ -29,9 +32,10 @@ img{border:0}
 .field label{display:block;color:#517da2;font-weight:bold;font-size:small;margin-bottom:3px}
 .input{width:95%;padding:4px;border:1px solid #9fb6ca;background:#fff}
 .btn{background:#517da2;color:#fff;border:1px solid #3f6a8f;padding:5px 14px;font-weight:bold}
-.sec-h{margin:0;padding:6px 8px;background:#eef3f8;color:#517da2;font-size:small;font-weight:bold;border-bottom:1px solid #c9d4de;border-top:1px solid #c9d4de}
-.sec-h .n{color:#fff;background:#8aa6be;padding:0 4px;border-radius:7px}
-.sec-more{display:block;padding:6px 8px;font-size:small;text-align:right;border-bottom:1px solid #c9d4de}
+.sec-h{display:block;padding:7px 8px;background:#eef3f8;color:#517da2;font-weight:bold;text-decoration:none;border-bottom:1px solid #c9d4de}
+.sec-h.open{background:#dce7f1;color:#3f6a8f}
+.sec-h .tog{font-family:monospace;color:#fff;background:#517da2;padding:0 4px;margin-right:4px}
+.sec-h .n{color:#fff;background:#8aa6be;font-size:small;padding:0 4px;border-radius:7px}
 .chat{display:block;padding:6px 6px;border-bottom:1px solid #c9d4de;color:#222;text-decoration:none}
 .chat img{vertical-align:middle;margin-right:6px}
 .badge{float:right;background:#4fae4e;color:#fff;font-size:small;font-weight:bold;padding:1px 6px;margin:4px 0 0 4px;border-radius:9px}

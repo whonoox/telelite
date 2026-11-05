@@ -15,6 +15,7 @@ from .avatars import (
     saved_messages_png,
 )
 from .telegram_client import (
+    ALL_CHATS_ID,
     TeleliteError,
     get_messages,
     load_chat_list,
@@ -28,10 +29,9 @@ from .utils import cookie_is_secure, parse_chat_id
 bp = Blueprint("web", __name__, url_prefix="/web")
 
 MESSAGES_PER_PAGE = 20
-# Chats per section on the all-folders overview. Every row has an avatar
-# image that Opera's servers fetch up front, so the page stays light; the
-# rest are one "More" link away.
-OVERVIEW_SECTION_LIMIT = 15
+# ?folder value for "every folder collapsed" (the open folder's heading
+# links here, so tapping it again closes it).
+NO_FOLDER_OPEN = -1
 
 
 def _csrf_token(session_token):
@@ -163,28 +163,31 @@ def login_verify():
 @bp.route("/chats", methods=["GET"])
 @require_web_auth
 def chats():
-    """Without ?folder: one page with "All chats" and every Telegram folder
-    as a titled section of its first few chats. Opera Mini folds each run of
-    links into a collapsible group, so sections open in place without a page
-    load. With ?folder=<id>: that section's full list."""
+    """"All chats" and every Telegram folder as a list of headings, one of
+    them open with its chats underneath. Each heading is a link that reopens
+    the page with that folder expanded (and scrolled to), so feature-phone
+    browsers get an accordion without JavaScript. ?folder=<id> picks the open
+    folder; without it "All chats" is open."""
     try:
         sections = load_chat_list(g.session_string)
         error = None
     except TeleliteError as e:
         sections = []
         error = _error_message(e)
-    for section in sections:
-        section["chats"] = [
-            dict(c, placeholder=None if c["has_photo"] else _placeholder_url(c))
-            for c in section["chats"]
-        ]
     folder_id = _folder_id()
+    if folder_id is None:
+        folder_id = ALL_CHATS_ID
     current = next((s for s in sections if s["id"] == folder_id), None)
+    if current:
+        current["chats"] = [
+            dict(c, placeholder=None if c["has_photo"] else _placeholder_url(c))
+            for c in current["chats"]
+        ]
     return render_template(
         "chats.html",
         sections=sections,
         current=current,
-        section_limit=OVERVIEW_SECTION_LIMIT,
+        no_folder_open=NO_FOLDER_OPEN,
         error=error,
         csrf_token=g.csrf_token,
     )
