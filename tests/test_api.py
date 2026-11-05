@@ -365,3 +365,13 @@ def test_cors_open_for_api_but_not_web(client):
     assert "Access-Control-Allow-Origin" in client.get("/chats", headers=origin).headers
     assert "Access-Control-Allow-Credentials" not in client.get("/chats", headers=origin).headers
     assert "Access-Control-Allow-Origin" not in client.get("/web/login", headers=origin).headers
+
+
+def test_saved_messages_summary_hides_own_name_and_photo():
+    from types import SimpleNamespace
+    from telelite.telegram_client import _dialog_summary
+
+    me = SimpleNamespace(is_self=True, photo=object())
+    d = SimpleNamespace(id=99, name="My Name", entity=me, unread_count=0)
+    s = _dialog_summary(d)
+    assert s["name"] == "Saved Messages" and s["has_photo"] is False and s["is_self"] is True

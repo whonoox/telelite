@@ -6,7 +6,14 @@ from functools import wraps
 from flask import Blueprint, Response, abort, g, make_response, redirect, render_template, request, url_for
 
 from . import config, crypto, db
-from .avatars import get_avatar_thumbnail
+from .avatars import (
+    get_avatar_thumbnail,
+    PLACEHOLDER_COLORS,
+    placeholder_color,
+    placeholder_letter,
+    placeholder_png,
+    saved_messages_png,
+)
 from .telegram_client import (
     TeleliteError,
     get_messages,
@@ -160,7 +167,10 @@ def chats():
         error = _error_message(e)
     return render_template(
         "chats.html",
-        chats=view["chats"],
+        chats=[
+            dict(c, placeholder=None if c["has_photo"] else _placeholder_url(c))
+            for c in view["chats"]
+        ],
         folders=view["folders"],
         folder=view["folder"],
         error=error,
@@ -186,6 +196,39 @@ def avatar(chat_id):
         abort(404)
     resp = Response(thumbnail, mimetype="image/jpeg")
     resp.headers["Cache-Control"] = f"private, max-age={config.AVATAR_CACHE_TTL_HOURS * 3600}"
+    return resp
+
+
+# Placeholder icons hold no user data (a color and a letter), so they need no
+# login and can be cached by browsers and Opera's servers for a long time.
+_PLACEHOLDER_CACHE = "public, max-age=31536000"
+
+
+def _placeholder_url(chat):
+    if chat.get("is_self"):
+        return url_for("web.saved_messages_icon")
+    letter = placeholder_letter(chat["name"]) or "_"
+    return url_for(
+        "web.avatar_placeholder", color=placeholder_color(chat["chat_id"]), letter=letter
+    )
+
+
+@bp.route("/icons/saved.png", methods=["GET"])
+def saved_messages_icon():
+    resp = Response(saved_messages_png(), mimetype="image/png")
+    resp.headers["Cache-Control"] = _PLACEHOLDER_CACHE
+    return resp
+
+
+@bp.route("/icons/<int:color>/<letter>.png", methods=["GET"])
+def avatar_placeholder(color, letter):
+    if letter == "_":
+        letter = ""
+    valid_letter = letter == "" or (len(letter) == 1 and letter.isascii() and letter.isalnum())
+    if color >= len(PLACEHOLDER_COLORS) or not valid_letter:
+        abort(404)
+    resp = Response(placeholder_png(color, letter.upper()), mimetype="image/png")
+    resp.headers["Cache-Control"] = _PLACEHOLDER_CACHE
     return resp
 
 

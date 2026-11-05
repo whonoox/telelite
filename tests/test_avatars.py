@@ -131,3 +131,19 @@ def test_cache_is_not_shared_between_accounts(app):
         mock_downloads.return_value = {}
         assert avatars.get_avatar_thumbnails("session-2", 2, [7], fmt="jpeg") == {7: None}
     mock_downloads.assert_called_once_with("session-2", [7])
+
+
+# ---- placeholders ----
+
+def test_placeholder_letter_prefers_first_latin_character():
+    assert avatars.placeholder_letter("abebe") == "A"
+    assert avatars.placeholder_letter("ኦቶ Codes") == "C"
+    assert avatars.placeholder_letter("Концепты интерфейсов") == ""
+    assert avatars.placeholder_letter("") == ""
+
+
+def test_placeholder_images_are_thumbnail_sized_pngs():
+    for png in (avatars.placeholder_png(3, "A"), avatars.placeholder_png(0, ""), avatars.saved_messages_png()):
+        img = Image.open(io.BytesIO(png))
+        assert img.format == "PNG"
+        assert img.size == (avatars.THUMBNAIL_SIZE_PX, avatars.THUMBNAIL_SIZE_PX)
