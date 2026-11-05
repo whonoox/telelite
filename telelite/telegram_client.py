@@ -276,6 +276,8 @@ def list_dialogs(session_string):
 # folder by hand are looked up directly even when they're older.
 FOLDER_SCAN_LIMIT = 100
 CHAT_LIST_LIMIT = 50
+# Telegram folder ids start at 2, so 0 is free to mean "All chats".
+ALL_CHATS_ID = 0
 
 
 def _chat_record(d):
@@ -372,7 +374,7 @@ async def _peer_dialogs(client, input_peers):
     return found
 
 
-async def _load_chat_list(client, folder_id):
+async def _load_chat_list(client):
     # Folders are an extra on top of the chat list: if Telegram rejects
     # either folder request, show the plain list rather than an error page.
     # (A dead session still surfaces, from get_dialogs below.)
@@ -402,31 +404,29 @@ async def _load_chat_list(client, folder_id):
     scanned = [_chat_record(d) for d in dialogs]
     everything = scanned + [_chat_record(d) for d in extra if d.id not in seen]
 
-    current = next((f for f in folders if f["id"] == folder_id), None)
-    if current is None:
-        chats = scanned[:CHAT_LIST_LIMIT]
-    else:
-        chats = folder_rules.chats_in_folder(current, everything)[:CHAT_LIST_LIMIT]
+    sections = [_section(ALL_CHATS_ID, "All chats", scanned)]
+    for f in folders:
+        sections.append(_section(f["id"], f["title"], folder_rules.chats_in_folder(f, everything)))
+    return sections
+
+
+def _section(section_id, title, chats):
     return {
-        "folders": [
-            {
-                "id": f["id"],
-                "title": f["title"],
-                "unread": folder_rules.unread_chat_count(f, everything),
-            }
-            for f in folders
-        ],
-        "folder": None if current is None else {"id": current["id"], "title": current["title"]},
-        "chats": chats,
+        "id": section_id,
+        "title": title,
+        "unread": sum(1 for c in chats if c["unread"]),
+        "total": len(chats),
+        "chats": chats[:CHAT_LIST_LIMIT],
     }
 
 
-def load_chat_list(session_string, folder_id=None):
-    """Chat list for the browser client: the user's Telegram folders (with
-    unread-chat counts) plus the chats in folder_id, or in "All chats" when
-    folder_id is None or no longer exists."""
+def load_chat_list(session_string):
+    """Chat list for the browser client, as sections: "All chats" (id
+    ALL_CHATS_ID) followed by each of the user's Telegram folders in their
+    Telegram order. Each has a title, unread-chat count, total chat count and
+    up to CHAT_LIST_LIMIT chats."""
     try:
-        return _run(_with_client(session_string, lambda c: _load_chat_list(c, folder_id)))
+        return _run(_with_client(session_string, _load_chat_list))
     except FloodWaitError as e:
         raise TeleliteError(
             "Rate limited by Telegram, please wait.", code="flood_wait", retry_after=e.seconds

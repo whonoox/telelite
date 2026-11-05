@@ -1,22 +1,40 @@
 {% extends "base.html" %}
-{% block title %}{{ folder.title if folder else "Chats" }} - TeleLite{% endblock %}
+{% macro chat_row(chat, folder_id) -%}
+<a class="chat{% if chat.unread_count %} unread{% endif %}" href="{{ url_for('web.conversation', chat_id=chat.chat_id, name=chat.name, can_reply=(1 if chat.can_reply else 0), folder=folder_id) }}"><img src="{{ chat.placeholder or url_for('web.avatar', chat_id=chat.chat_id) }}" width="24" height="24" alt=""><span class="name">{{ chat.name }}</span>{% if chat.unread_count %} <span class="badge">{{ chat.unread_count }}</span>{% endif %}</a>
+{%- endmacro %}
+{% block title %}{{ current.title if current else "Chats" }} - TeleLite{% endblock %}
 {% block body %}
-<div class="bar">TeleLite <span class="sub">{{ folder.title if folder else "All chats" }}</span></div>
-{% if folders %}
-<div class="tabs"><a class="tab{% if not folder %} on{% endif %}" href="{{ url_for('web.chats') }}">All</a>
-{% for f in folders %} <a class="tab{% if folder and folder.id == f.id %} on{% endif %}" href="{{ url_for('web.chats', folder=f.id) }}">{{ f.title }}{% if f.unread %} <span class="n">{{ f.unread }}</span>{% endif %}</a>
-{% endfor %}</div>
-{% endif %}
+{% if current %}
+<div class="bar"><a class="back" href="{{ url_for('web.chats') }}">&laquo;</a> {{ current.title }}</div>
 {% if error %}<div class="err">{{ error }}</div>{% endif %}
-{% for chat in chats %}
-<a class="chat{% if chat.unread_count %} unread{% endif %}" href="{{ url_for('web.conversation', chat_id=chat.chat_id, name=chat.name, can_reply=(1 if chat.can_reply else 0), folder=(folder.id if folder else None)) }}"><img src="{{ chat.placeholder or url_for('web.avatar', chat_id=chat.chat_id) }}" width="24" height="24" alt=""><span class="name">{{ chat.name }}</span>{% if chat.unread_count %} <span class="badge">{{ chat.unread_count }}</span>{% endif %}</a>
+{% for chat in current.chats %}
+{{ chat_row(chat, current.id) }}
 {% else %}
-{% if not error %}<div class="empty">No chats here.</div>{% endif %}
+<div class="empty">No chats here.</div>
 {% endfor %}
+{% if current.total > current.chats|length %}<div class="hint pad">Showing the {{ current.chats|length }} most recent.</div>{% endif %}
+{% else %}
+<div class="bar">TeleLite</div>
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+{# One titled section per folder. Opera Mini folds each run of chat links
+   into a collapsible group; the heading and title attribute are there to
+   label that group. #}
+{% for section in sections %}
+<div class="sec" title="{{ section.title }}">
+<h2 class="sec-h">{{ section.title }}{% if section.unread %} <span class="n">{{ section.unread }}</span>{% endif %}</h2>
+{% for chat in section.chats[:section_limit] %}
+{{ chat_row(chat, None) }}
+{% else %}
+<div class="empty">No chats here.</div>
+{% endfor %}
+{% if section.total > section_limit %}<a class="sec-more" href="{{ url_for('web.chats', folder=section.id) }}">More in {{ section.title }} &raquo;</a>{% endif %}
+</div>
+{% endfor %}
+{% endif %}
 <div class="foot">
 <form method="post" action="/web/logout">
 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-<a href="{{ url_for('web.chats', folder=(folder.id if folder else None)) }}">Refresh</a> &middot;
+<a href="{{ url_for('web.chats', folder=(current.id if current else None)) }}">Refresh</a> &middot;
 <input class="link-btn" type="submit" value="Log out">
 </form>
 </div>

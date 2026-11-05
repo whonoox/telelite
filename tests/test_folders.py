@@ -68,12 +68,6 @@ def test_order_is_folder_pins_then_newest_first():
     assert [c["chat_id"] for c in folders.chats_in_folder(f, chats)] == [3, 1, 4, 2]
 
 
-def test_unread_count_counts_unread_member_chats():
-    f = _folder(kinds={"group"})
-    chats = [_chat(1, "group", unread=True), _chat(2, "group"), _chat(3, "contact", unread=True)]
-    assert folders.unread_chat_count(f, chats) == 1
-
-
 # ---- Telegram side, with real Telethon objects ----
 
 def _user(uid, **kw):
@@ -143,17 +137,14 @@ def test_load_chat_list_fills_folders_and_fetches_old_hand_picked_chats():
     client.get_peer_id.return_value = 99
     client.get_dialogs.return_value = recent
 
-    view = asyncio_run(telegram_client._load_chat_list(client, 3))
-    assert view["folder"] == {"id": 3, "title": "Friends"}
-    assert [c["chat_id"] for c in view["chats"]] == [30, 10]  # pinned old friend first
-    assert {f["title"]: f["unread"] for f in view["folders"]} == {"Channels": 1, "Friends": 2}
-
-    all_view = asyncio_run(telegram_client._load_chat_list(client, None))
-    assert all_view["folder"] is None
-    assert [c["chat_id"] for c in all_view["chats"]] == [10, 11, -1000000000020]
-
-    gone = asyncio_run(telegram_client._load_chat_list(client, 404))
-    assert gone["folder"] is None  # deleted folder falls back to All chats
+    sections = asyncio_run(telegram_client._load_chat_list(client))
+    assert [(s["id"], s["title"]) for s in sections] == [(0, "All chats"), (2, "Channels"), (3, "Friends")]
+    all_chats, channels, friends = sections
+    assert [c["chat_id"] for c in all_chats["chats"]] == [10, 11, -1000000000020]
+    assert [c["chat_id"] for c in channels["chats"]] == [-1000000000020]
+    assert [c["chat_id"] for c in friends["chats"]] == [30, 10]  # pinned old friend first
+    assert (all_chats["unread"], channels["unread"], friends["unread"]) == (2, 1, 2)
+    assert friends["total"] == 2
 
 
 def asyncio_run(coro):
@@ -169,5 +160,5 @@ def test_folder_request_failure_degrades_to_plain_list():
 
     client = AsyncMock(side_effect=call)
     client.get_dialogs.return_value = []
-    view = asyncio_run(telegram_client._load_chat_list(client, 3))
-    assert view == {"folders": [], "folder": None, "chats": []}
+    sections = asyncio_run(telegram_client._load_chat_list(client))
+    assert [s["title"] for s in sections] == ["All chats"]
