@@ -14,9 +14,9 @@ img{vertical-align:middle;margin-right:4px}
 </style>
 </head>
 <body>
-{% macro links(tag, n=8) %}{% for i in range(1, n + 1) %}<a href="?{{ tag }}={{ i }}">{{ tag }} chat {{ i }}</a>
+{% macro links(tag, count=none) %}{% for i in range(1, (count or n) + 1) %}<a href="?{{ tag }}={{ i }}">{{ tag }} chat {{ i }}</a>
 {% endfor %}{% endmacro %}
-<p>Note the label Opera shows on each folded group.</p>
+<p>Note the label Opera shows on each folded group. {{ n }} links per case; change ?n= to try other sizes.</p>
 
 <p class="case">Case A (plain)</p>
 {{ links("A") }}
@@ -28,7 +28,7 @@ img{vertical-align:middle;margin-right:4px}
 
 <p class="case">Case C (ul title)</p>
 <ul title="C-ul-title">
-{% for i in range(1, 9) %}<li><a href="?C={{ i }}">C chat {{ i }}</a></li>
+{% for i in range(1, n + 1) %}<li><a href="?C={{ i }}">C chat {{ i }}</a></li>
 {% endfor %}
 </ul>
 
@@ -43,7 +43,7 @@ img{vertical-align:middle;margin-right:4px}
 </fieldset>
 
 <p class="case">Case F (link titles)</p>
-{% for i in range(1, 9) %}<a href="?F={{ i }}" title="F-link-title">F chat {{ i }}</a>
+{% for i in range(1, n + 1) %}<a href="?F={{ i }}" title="F-link-title">F chat {{ i }}</a>
 {% endfor %}
 
 <p class="case">Case G (dl dt)</p>
@@ -53,7 +53,7 @@ img{vertical-align:middle;margin-right:4px}
 
 <p class="case">Case H (table caption)</p>
 <table summary="H-summary"><caption>H-caption</caption>
-{% for i in range(1, 9) %}<tr><td><a href="?H={{ i }}">H chat {{ i }}</a></td></tr>
+{% for i in range(1, n + 1) %}<tr><td><a href="?H={{ i }}">H chat {{ i }}</a></td></tr>
 {% endfor %}
 </table>
 
@@ -62,21 +62,24 @@ img{vertical-align:middle;margin-right:4px}
 {{ links("J") }}
 
 <p class="case">Case K (with avatar images)</p>
-{% for i in range(1, 9) %}<a href="?K={{ i }}"><img src="{{ url_for('web.avatar_placeholder', color=i % 7, letter='K') }}" width="24" height="24" alt="">K chat {{ i }}</a>
+{% for i in range(1, n + 1) %}<a href="?K={{ i }}"><img src="{{ url_for('web.avatar_placeholder', color=i % 7, letter='K') }}" width="24" height="24" alt="">K chat {{ i }}</a>
 {% endfor %}
 
 <p class="case">Case L (one long name in the middle)</p>
-{{ links("L", 4) }}<a href="?L=long">L chat with a really long name that has to wrap onto two lines</a>
-{{ links("M", 4) }}
+{{ links("L") }}<a href="?L=long">L chat with a really long name that has to wrap onto two lines</a>
+{{ links("M") }}
 
-<p class="case">Case N (3 links)</p>
-{{ links("N", 3) }}
+<p class="case">Case N (9 links)</p>
+{{ links("N", 9) }}
 
-<p class="case">Case P (5 links)</p>
-{{ links("P", 5) }}
+<p class="case">Case P (10 links)</p>
+{{ links("P", 10) }}
 
-<p class="case">Case Q (7 links)</p>
-{{ links("Q", 7) }}
+<p class="case">Case Q (11 links)</p>
+{{ links("Q", 11) }}
+
+<p class="case">Case R (20 links)</p>
+{{ links("R", 20) }}
 
 <p>End of test.</p>
 </body>
